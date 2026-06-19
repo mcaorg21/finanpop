@@ -1,0 +1,20 @@
+node_modules
+dist
+uploads
+.env
+*.log
+.DS_Store
+.wrangler
+.claude
+
+# Old Mocha/Cloudflare files
+code/
+d1_dump.sql
+*.zip
+public_asset_links.json
+users.json
+src/worker/
+src/shared/
+tsconfig.worker.json
+knip.json
+wrangler.json
