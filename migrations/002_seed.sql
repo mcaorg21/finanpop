@@ -651,20 +651,20 @@ INSERT INTO "transactions" ("id","date","type","amount","home_id","category_id",
 INSERT INTO "transactions" ("id","date","type","amount","home_id","category_id","employee_id","payment_method","status","description","notes","attachment_url","created_at","updated_at","due_date","payment_date","company_id","tenant_id") VALUES(482,'2026-06-19','EXPENSE',4213.67,1,39,NULL,'BOLETO_DDA','PAID','Pagamento E-Social',NULL,NULL,'2026-06-19 14:19:46','2026-06-19 14:19:46','2026-06-19','2026-06-19',NULL,1);
 
 -- =============================================
--- Reset sequences
+-- Reset sequences (use GREATEST to avoid 0 which is out of bounds)
 -- =============================================
-SELECT setval('homes_id_seq', (SELECT COALESCE(MAX(id), 0) FROM homes));
-SELECT setval('employees_id_seq', (SELECT COALESCE(MAX(id), 0) FROM employees));
-SELECT setval('categories_id_seq', (SELECT COALESCE(MAX(id), 0) FROM categories));
-SELECT setval('transactions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM transactions));
-SELECT setval('pix_keys_id_seq', (SELECT COALESCE(MAX(id), 0) FROM pix_keys));
-SELECT setval('companies_id_seq', (SELECT COALESCE(MAX(id), 0) FROM companies));
-SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) FROM users));
-SELECT setval('tenants_id_seq', (SELECT COALESCE(MAX(id), 0) FROM tenants));
-SELECT setval('admins_id_seq', (SELECT COALESCE(MAX(id), 0) FROM admins));
-SELECT setval('timesheets_id_seq', (SELECT COALESCE(MAX(id), 0) FROM timesheets));
-SELECT setval('timesheet_entries_id_seq', (SELECT COALESCE(MAX(id), 0) FROM timesheet_entries));
-SELECT setval('verification_requests_id_seq', (SELECT COALESCE(MAX(id), 0) FROM verification_requests));
-SELECT setval('attachments_id_seq', (SELECT COALESCE(MAX(id), 0) FROM attachments));
+SELECT setval('homes_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM homes), 1));
+SELECT setval('employees_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM employees), 1));
+SELECT setval('categories_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM categories), 1));
+SELECT setval('transactions_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM transactions), 1));
+SELECT setval('pix_keys_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM pix_keys), 1));
+SELECT setval('companies_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM companies), 1));
+SELECT setval('users_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM users), 1));
+SELECT setval('tenants_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM tenants), 1));
+SELECT setval('admins_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM admins), 1));
+SELECT setval('timesheets_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM timesheets), 1));
+SELECT setval('timesheet_entries_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM timesheet_entries), 1));
+SELECT setval('verification_requests_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM verification_requests), 1));
+SELECT setval('attachments_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM attachments), 1));
 
 COMMIT;
