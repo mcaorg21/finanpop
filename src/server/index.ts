@@ -72,6 +72,10 @@ const getEmailTransporter = () => {
   });
 };
 
+// ============ HEALTH ============
+
+app.get("/api/health", (c) => c.json({ status: "ok" }));
+
 // ============ AUTH ============
 
 app.post("/api/auth/login", async (c) => {
