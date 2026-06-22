@@ -1119,4 +1119,4 @@ if (fs.existsSync(publicDir)) {
 
 const port = parseInt(process.env.PORT || "3000");
 console.log(`Server running on port ${port}`);
-serve({ fetch: app.fetch, port });
+serve({ fetch: app.fetch, port, hostname: "0.0.0.0" });
