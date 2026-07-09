@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router";
 import TopNav from "./TopNav";
 import TutorialModal from "@/react-app/components/TutorialModal";
+import PendingAlert from "@/react-app/components/PendingAlert";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout() {
@@ -73,6 +74,7 @@ export default function DashboardLayout() {
     <div className="min-h-screen bg-background">
       <TopNav />
       <TutorialModal />
+      <PendingAlert />
       <main className="pt-16 min-h-screen">
         <div className="p-4 lg:p-8 max-w-7xl mx-auto">
           <Outlet />
