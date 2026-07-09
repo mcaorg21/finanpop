@@ -234,6 +234,50 @@ app.put("/api/admin/tenants/:id", adminAuthMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
+app.get("/api/admin/users", adminAuthMiddleware, async (c) => {
+  const { rows } = await pool.query(
+    `SELECT u.id, u.name, u.username, u.password, u.is_active, u.tenant_id, u.created_at, t.name as tenant_name
+     FROM users u LEFT JOIN tenants t ON u.tenant_id = t.id ORDER BY u.id`
+  );
+  return c.json(rows);
+});
+
+app.post("/api/admin/users", adminAuthMiddleware, async (c) => {
+  const { name, username, password, tenant_id, is_active } = await c.req.json();
+  if (!name || !username || !password || !tenant_id) {
+    return c.json({ error: "Nome, login, senha e licença são obrigatórios" }, 400);
+  }
+  if (password.length < 6) return c.json({ error: "A senha deve ter no mínimo 6 caracteres" }, 400);
+  const { rows: exist } = await pool.query("SELECT id FROM users WHERE username = $1", [username]);
+  if (exist[0]) return c.json({ error: "Este login já está em uso" }, 400);
+  const { rows } = await pool.query(
+    `INSERT INTO users (name, username, password, is_active, tenant_id) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [name, username, password, is_active !== false, tenant_id]
+  );
+  return c.json({ success: true, id: rows[0].id }, 201);
+});
+
+app.put("/api/admin/users/:id", adminAuthMiddleware, async (c) => {
+  const id = c.req.param("id");
+  const { name, username, password, tenant_id, is_active } = await c.req.json();
+  if (!name || !username || !tenant_id) return c.json({ error: "Nome, login e licença são obrigatórios" }, 400);
+  const { rows: exist } = await pool.query("SELECT id FROM users WHERE username = $1 AND id != $2", [username, id]);
+  if (exist[0]) return c.json({ error: "Este login já está em uso" }, 400);
+  if (password) {
+    if (password.length < 6) return c.json({ error: "A senha deve ter no mínimo 6 caracteres" }, 400);
+    await pool.query(
+      `UPDATE users SET name=$1, username=$2, password=$3, tenant_id=$4, is_active=$5, updated_at=NOW() WHERE id=$6`,
+      [name, username, password, tenant_id, is_active, id]
+    );
+  } else {
+    await pool.query(
+      `UPDATE users SET name=$1, username=$2, tenant_id=$3, is_active=$4, updated_at=NOW() WHERE id=$5`,
+      [name, username, tenant_id, is_active, id]
+    );
+  }
+  return c.json({ success: true });
+});
+
 // ============ USER AUTH ============
 
 app.post("/api/auth/register", async (c) => {
