@@ -57,18 +57,31 @@ const CHART_COLORS = [
   "#3b82f6", "#8b5cf6", "#ec4899", "#6366f1", "#06b6d4"
 ];
 
+type DateField = "date" | "due_date" | "payment_date";
+
+const DATE_FIELD_KEY = "finanpop_report_date_field";
+
+const lastDayOfCurrentMonth = (): string => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+};
+
+const threeMonthsAgo = (): string => {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 2);
+  return d.toISOString().split("T")[0];
+};
+
 export default function RelatoriosPage() {
   const { error: showError } = useAlert();
-  const [dueDateStart, setDueDateStart] = useState<string>(
-    (() => {
-      const date = new Date();
-      date.setMonth(date.getMonth() - 3);
-      return date.toISOString().split("T")[0];
-    })()
-  );
-  const [dueDateEnd, setDueDateEnd] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
+
+  const [dateField, setDateField] = useState<DateField>(() => {
+    const saved = localStorage.getItem(DATE_FIELD_KEY) as DateField | null;
+    return saved && ["date", "due_date", "payment_date"].includes(saved) ? saved : "due_date";
+  });
+  const [dueDateStart, setDueDateStart] = useState<string>(threeMonthsAgo());
+  const [dueDateEnd, setDueDateEnd] = useState<string>(lastDayOfCurrentMonth());
   const [homeIds, setHomeIds] = useState<string[]>([]);
   const [employeeId, setEmployeeId] = useState<string>("");
   const [companyId, setCompanyId] = useState<string>("");
@@ -108,12 +121,18 @@ export default function RelatoriosPage() {
     fetchOptions();
   }, []);
 
+  const appendDateParams = (params: URLSearchParams) => {
+    const startKey = dateField === "date" ? "start_date" : dateField === "due_date" ? "due_date_start" : "payment_date_start";
+    const endKey = dateField === "date" ? "end_date" : dateField === "due_date" ? "due_date_end" : "payment_date_end";
+    if (dueDateStart) params.append(startKey, dueDateStart);
+    if (dueDateEnd) params.append(endKey, dueDateEnd);
+  };
+
   const fetchReport = async () => {
     setIsFiltering(true);
     try {
       const params = new URLSearchParams();
-      if (dueDateStart) params.append("due_date_start", dueDateStart);
-      if (dueDateEnd) params.append("due_date_end", dueDateEnd);
+      appendDateParams(params);
       if (homeIds.length > 0) {
         homeIds.forEach(id => params.append("home_ids[]", id));
       }
@@ -141,6 +160,17 @@ export default function RelatoriosPage() {
   useEffect(() => {
     fetchReport();
   }, []);
+
+  const handleDateFieldChange = (field: DateField) => {
+    setDateField(field);
+    localStorage.setItem(DATE_FIELD_KEY, field);
+  };
+
+  const dateFieldLabels: Record<DateField, string> = {
+    date: "Cadastro",
+    due_date: "Vencimento",
+    payment_date: "Pagamento",
+  };
 
   const handleApplyFilters = () => {
     fetchReport();
@@ -281,8 +311,7 @@ export default function RelatoriosPage() {
 
   const handleExportExcel = async () => {
     const params = new URLSearchParams();
-    if (dueDateStart) params.append("due_date_start", dueDateStart);
-    if (dueDateEnd) params.append("due_date_end", dueDateEnd);
+    appendDateParams(params);
     if (homeIds.length > 0) {
       homeIds.forEach(id => params.append("home_ids[]", id));
     }
@@ -353,8 +382,7 @@ export default function RelatoriosPage() {
 
   const handleExportCSV = async () => {
     const params = new URLSearchParams();
-    if (dueDateStart) params.append("due_date_start", dueDateStart);
-    if (dueDateEnd) params.append("due_date_end", dueDateEnd);
+    appendDateParams(params);
     if (homeIds.length > 0) {
       homeIds.forEach(id => params.append("home_ids[]", id));
     }
@@ -457,33 +485,59 @@ export default function RelatoriosPage() {
               {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>
           </div>
-          {/* Mobile: Due date filters always visible */}
-          <div className="grid grid-cols-2 gap-2 mt-3 lg:hidden">
-            <div className="space-y-1">
-              <Label className="text-xs">Vencimento Início</Label>
-              <Input
-                type="date"
-                value={dueDateStart}
-                onChange={(e) => setDueDateStart(e.target.value)}
-                className="h-9 text-sm"
-              />
+          {/* Mobile: date field selector + dates always visible */}
+          <div className="mt-3 space-y-2 lg:hidden">
+            <div className="flex gap-1">
+              {(["date", "due_date", "payment_date"] as DateField[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => handleDateFieldChange(f)}
+                  className={`flex-1 py-1 text-xs rounded-md border transition-colors ${
+                    dateField === f ? "bg-primary text-primary-foreground border-primary" : "border-input hover:bg-muted"
+                  }`}
+                >
+                  {dateFieldLabels[f]}
+                </button>
+              ))}
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Vencimento Fim</Label>
-              <Input
-                type="date"
-                value={dueDateEnd}
-                onChange={(e) => setDueDateEnd(e.target.value)}
-                className="h-9 text-sm"
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">{dateFieldLabels[dateField]} Início</Label>
+                <Input type="date" value={dueDateStart} onChange={(e) => setDueDateStart(e.target.value)} className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{dateFieldLabels[dateField]} Fim</Label>
+                <Input type="date" value={dueDateEnd} onChange={(e) => setDueDateEnd(e.target.value)} className="h-9 text-sm" />
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
           {/* Desktop: Full grid */}
-          <div className="hidden lg:grid lg:grid-cols-4 gap-4">
+          <div className="hidden lg:block space-y-4">
+            {/* Date field selector */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Filtrar por data de:</span>
+              <div className="flex gap-1">
+                {(["date", "due_date", "payment_date"] as DateField[]).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => handleDateFieldChange(f)}
+                    className={`px-4 py-1.5 text-sm rounded-md border transition-colors ${
+                      dateField === f ? "bg-primary text-primary-foreground border-primary" : "border-input hover:bg-muted"
+                    }`}
+                  >
+                    {dateFieldLabels[f]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          <div className="lg:grid lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label>Vencimento Início</Label>
+              <Label>{dateFieldLabels[dateField]} Início</Label>
               <Input
                 type="date"
                 value={dueDateStart}
@@ -491,7 +545,7 @@ export default function RelatoriosPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Vencimento Fim</Label>
+              <Label>{dateFieldLabels[dateField]} Fim</Label>
               <Input
                 type="date"
                 value={dueDateEnd}
@@ -653,6 +707,7 @@ export default function RelatoriosPage() {
                 Aplicar
               </Button>
             </div>
+          </div>
           </div>
 
           {/* Mobile: Collapsible extra filters */}

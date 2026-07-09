@@ -795,7 +795,7 @@ app.delete("/api/categories/:id", authMiddleware, async (c) => {
 
 app.get("/api/transactions", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
-  const { start_date, end_date, home_id, employee_id, category_id, type, status } = c.req.query();
+  const { start_date, end_date, due_date_start, due_date_end, payment_date_start, payment_date_end, home_id, employee_id, category_id, type, status } = c.req.query();
 
   let sql = `SELECT t.*, h.name as home_name,
              CASE WHEN pc.name IS NOT NULL THEN pc.name || ' > ' || c.name ELSE c.name END as category_name,
@@ -814,6 +814,10 @@ app.get("/api/transactions", authMiddleware, async (c) => {
 
   if (start_date) { sql += ` AND t.date >= $${paramIdx++}`; params.push(start_date); }
   if (end_date) { sql += ` AND t.date <= $${paramIdx++}`; params.push(end_date); }
+  if (due_date_start) { sql += ` AND t.due_date >= $${paramIdx++}`; params.push(due_date_start); }
+  if (due_date_end) { sql += ` AND t.due_date <= $${paramIdx++}`; params.push(due_date_end); }
+  if (payment_date_start) { sql += ` AND t.payment_date >= $${paramIdx++}`; params.push(payment_date_start); }
+  if (payment_date_end) { sql += ` AND t.payment_date <= $${paramIdx++}`; params.push(payment_date_end); }
   if (home_id) { sql += ` AND t.home_id = $${paramIdx++}`; params.push(home_id); }
   if (employee_id) { sql += ` AND t.employee_id = $${paramIdx++}`; params.push(employee_id); }
   if (c.req.query("company_id")) { sql += ` AND t.company_id = $${paramIdx++}`; params.push(c.req.query("company_id")); }
@@ -894,7 +898,7 @@ app.get("/api/stats", authMiddleware, async (c) => {
 
 app.get("/api/reports", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
-  const { start_date, end_date, due_date_start, due_date_end, employee_id, company_id, type, status } = c.req.query();
+  const { start_date, end_date, due_date_start, due_date_end, payment_date_start, payment_date_end, employee_id, company_id, type, status } = c.req.query();
   const homeIdsParam = c.req.queries("home_ids[]") || [];
   const categoryIdsParam = c.req.queries("category_ids[]") || [];
 
@@ -906,6 +910,8 @@ app.get("/api/reports", authMiddleware, async (c) => {
   if (end_date) { whereClause += ` AND t.date <= $${paramIdx++}`; params.push(end_date); }
   if (due_date_start) { whereClause += ` AND t.due_date >= $${paramIdx++}`; params.push(due_date_start); }
   if (due_date_end) { whereClause += ` AND t.due_date <= $${paramIdx++}`; params.push(due_date_end); }
+  if (payment_date_start) { whereClause += ` AND t.payment_date >= $${paramIdx++}`; params.push(payment_date_start); }
+  if (payment_date_end) { whereClause += ` AND t.payment_date <= $${paramIdx++}`; params.push(payment_date_end); }
   if (homeIdsParam.length > 0) {
     const placeholders = homeIdsParam.map(() => `$${paramIdx++}`).join(",");
     whereClause += ` AND t.home_id IN (${placeholders})`;
