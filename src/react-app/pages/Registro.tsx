@@ -1028,7 +1028,7 @@ export default function RegistroPage() {
                   </button>
                   
                   {isCategoryDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
+                    <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-[380px] overflow-y-auto">
                       {(() => {
                         // Group by parent
                         const parents = filteredCategories.filter(c => !c.parent_id);
