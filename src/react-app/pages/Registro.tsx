@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
 import { Badge } from "@/react-app/components/ui/badge";
-import { Receipt, Plus, Pencil, Copy, Trash2, TrendingUp, TrendingDown, Wallet, Loader2, Paperclip, Camera, X, FileText, Image as ImageIcon, Eye, AlertCircle, Filter, RotateCcw, FileSpreadsheet, FileDown, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { Receipt, Plus, Pencil, Copy, Trash2, TrendingUp, TrendingDown, Wallet, Loader2, Paperclip, Camera, X, FileText, Image as ImageIcon, Eye, AlertCircle, Filter, RotateCcw, FileSpreadsheet, FileDown, ChevronDown, ChevronRight, RefreshCw, Repeat2 } from "lucide-react";
 import { useToast } from "@/react-app/hooks/use-toast";
 import { useAlert } from "@/react-app/hooks/use-alert";
 
@@ -124,6 +124,8 @@ export default function RegistroPage() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [enableRepeat, setEnableRepeat] = useState(false);
+  const [repeatMonths, setRepeatMonths] = useState("2");
   
   // Filters
   const [filterDateStart, setFilterDateStart] = useState("");
@@ -248,22 +250,49 @@ export default function RegistroPage() {
       if (res.ok) {
         const data = await res.json();
         const transactionId = editingId || data.id;
-        
+
         // Upload pending files
         if (pendingFiles.length > 0) {
           setIsUploadingFiles(true);
           await uploadFiles(transactionId);
           setIsUploadingFiles(false);
         }
-        
+
+        // Create repeated records if enabled (only for new transactions)
+        if (!editingId && enableRepeat) {
+          const months = Math.min(Math.max(parseInt(repeatMonths) || 1, 1), 60);
+          for (let i = 1; i <= months; i++) {
+            await fetch("/api/transactions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...payload,
+                date: addMonths(payload.date, i),
+                due_date: payload.due_date ? addMonths(payload.due_date, i) : null,
+                payment_date: null,
+                status: "PENDING",
+              }),
+              credentials: "include",
+            });
+          }
+        }
+
         setIsOpen(false);
         setForm(emptyForm);
         setEditingId(null);
         setErrors({});
         setPendingFiles([]);
         setExistingAttachments([]);
+        setEnableRepeat(false);
         fetchData();
-        toast({ title: editingId ? "Lançamento atualizado" : "Lançamento registrado" });
+        const repeatCount = !editingId && enableRepeat ? parseInt(repeatMonths) || 1 : 0;
+        toast({
+          title: editingId
+            ? "Lançamento atualizado"
+            : repeatCount > 0
+            ? `Lançamento registrado + ${repeatCount} repetição${repeatCount > 1 ? "ões" : ""} criada${repeatCount > 1 ? "s" : ""}`
+            : "Lançamento registrado",
+        });
       } else {
         const error = await res.json();
         toast({ title: error.error || "Erro ao salvar", variant: "destructive" });
@@ -356,6 +385,8 @@ export default function RegistroPage() {
     setErrors({});
     setPendingFiles([]);
     setExistingAttachments([]);
+    setEnableRepeat(false);
+    setRepeatMonths("2");
     setIsOpen(true);
   };
 
@@ -415,6 +446,12 @@ export default function RegistroPage() {
   const getFileIcon = (contentType: string) => {
     if (contentType.startsWith("image/")) return ImageIcon;
     return FileText;
+  };
+
+  const addMonths = (dateStr: string, months: number): string => {
+    const d = new Date(dateStr + "T12:00:00");
+    d.setMonth(d.getMonth() + months);
+    return d.toISOString().split("T")[0];
   };
 
   const formatCurrency = (value: number) => {
@@ -1075,6 +1112,46 @@ export default function RegistroPage() {
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
             </div>
+
+            {/* Repeat Section - only for new transactions */}
+            {!editingId && (
+              <div className="space-y-3 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setEnableRepeat(!enableRepeat)}
+                  className={`flex items-center gap-2 text-sm font-medium transition-colors ${
+                    enableRepeat ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Repeat2 className="w-4 h-4" />
+                  Repetir lançamento por meses
+                  <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${enableRepeat ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                    {enableRepeat ? "ativado" : "desativado"}
+                  </span>
+                </button>
+                {enableRepeat && (
+                  <div className="flex items-center gap-3 pl-6">
+                    <span className="text-sm text-muted-foreground">Criar mais</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={repeatMonths}
+                      onChange={(e) => setRepeatMonths(e.target.value)}
+                      className="w-16 border rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {parseInt(repeatMonths) === 1 ? "mês" : "meses"} seguintes
+                    </span>
+                  </div>
+                )}
+                {enableRepeat && (
+                  <p className="text-xs text-muted-foreground pl-6">
+                    Serão criados {parseInt(repeatMonths) || 1} registros adicionais com status <strong>Pendente</strong>, sem data de pagamento.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Attachments Section */}
             <div className="space-y-3 pt-2 border-t">
