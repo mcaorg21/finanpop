@@ -126,6 +126,8 @@ export default function RegistroPage() {
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [enableRepeat, setEnableRepeat] = useState(false);
   const [repeatMonths, setRepeatMonths] = useState("2");
+  const [cardType, setCardType] = useState<"" | "credit" | "debit">("");
+  const [installments, setInstallments] = useState("2");
   
   // Filters
   const [filterDateStart, setFilterDateStart] = useState("");
@@ -193,6 +195,7 @@ export default function RegistroPage() {
     if (!form.home_id) newErrors.home_id = "Selecione um centro de custo";
     if (!form.category_id) newErrors.category_id = "Selecione uma categoria";
     if (!form.payment_method) newErrors.payment_method = "Selecione uma forma de pagamento";
+    if (form.payment_method === "CARD" && !cardType) newErrors.cardType = "Selecione Débito ou Crédito";
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -225,10 +228,17 @@ export default function RegistroPage() {
       const url = editingId ? `/api/transactions/${editingId}` : "/api/transactions";
       const method = editingId ? "PUT" : "POST";
 
+      const isCardCredit = form.payment_method === "CARD" && cardType === "credit";
+      const numInstallments = isCardCredit && !editingId ? Math.min(Math.max(parseInt(installments) || 1, 1), 48) : 1;
+      const totalAmount = parseFloat(parseCurrencyToNumber(form.amount));
+      const installmentAmount = numInstallments > 1
+        ? Math.round((totalAmount / numInstallments) * 100) / 100
+        : totalAmount;
+
       const payload = {
         date: form.date,
         type: form.type,
-        amount: parseFloat(parseCurrencyToNumber(form.amount)),
+        amount: installmentAmount,
         home_id: parseInt(form.home_id),
         category_id: parseInt(form.category_id),
         employee_id: form.employee_id ? parseInt(form.employee_id) : null,
@@ -259,8 +269,26 @@ export default function RegistroPage() {
           setIsUploadingFiles(false);
         }
 
-        // Create repeated records if enabled (only for new transactions)
-        if (!editingId && enableRepeat) {
+        // Create installment records (card credit)
+        if (!editingId && numInstallments > 1) {
+          for (let i = 1; i < numInstallments; i++) {
+            await fetch("/api/transactions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...payload,
+                date: addMonths(payload.date, i),
+                due_date: payload.due_date ? addMonths(payload.due_date, i) : null,
+                payment_date: null,
+                status: "PENDING",
+              }),
+              credentials: "include",
+            });
+          }
+        }
+
+        // Create repeated records if enabled (only for new transactions, not when using installments)
+        if (!editingId && enableRepeat && numInstallments === 1) {
           const months = Math.min(Math.max(parseInt(repeatMonths) || 1, 1), 60);
           for (let i = 1; i <= months; i++) {
             await fetch("/api/transactions", {
@@ -285,15 +313,21 @@ export default function RegistroPage() {
         setPendingFiles([]);
         setExistingAttachments([]);
         setEnableRepeat(false);
+        setCardType("");
+        setInstallments("2");
         fetchData();
-        const repeatCount = !editingId && enableRepeat ? parseInt(repeatMonths) || 1 : 0;
-        toast({
-          title: editingId
-            ? "Lançamento atualizado"
-            : repeatCount > 0
-            ? `Lançamento registrado + ${repeatCount} repetição${repeatCount > 1 ? "ões" : ""} criada${repeatCount > 1 ? "s" : ""}`
-            : "Lançamento registrado",
-        });
+        let successMsg = "Lançamento atualizado";
+        if (!editingId) {
+          if (numInstallments > 1) {
+            successMsg = `${numInstallments}x de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(installmentAmount)} criadas`;
+          } else if (enableRepeat) {
+            const rc = parseInt(repeatMonths) || 1;
+            successMsg = `Lançamento registrado + ${rc} repetição${rc > 1 ? "ões" : ""} criada${rc > 1 ? "s" : ""}`;
+          } else {
+            successMsg = "Lançamento registrado";
+          }
+        }
+        toast({ title: successMsg });
       } else {
         const error = await res.json();
         toast({ title: error.error || "Erro ao salvar", variant: "destructive" });
@@ -388,6 +422,8 @@ export default function RegistroPage() {
     setExistingAttachments([]);
     setEnableRepeat(false);
     setRepeatMonths("2");
+    setCardType("");
+    setInstallments("2");
     setIsOpen(true);
   };
 
@@ -637,6 +673,7 @@ export default function RegistroPage() {
   const paymentMethodLabels: Record<string, string> = {
     CASH: "Dinheiro",
     PIX: "Pix",
+    PIX_PARCELADO: "Pix Parcelado",
     CARD: "Cartão",
     BOLETO: "Boleto",
     BOLETO_DDA: "Boleto (DDA)",
@@ -774,6 +811,7 @@ export default function RegistroPage() {
                     <SelectItem value="all">Todas</SelectItem>
                     <SelectItem value="CASH">Dinheiro</SelectItem>
                     <SelectItem value="PIX">Pix</SelectItem>
+                    <SelectItem value="PIX_PARCELADO">Pix Parcelado</SelectItem>
                     <SelectItem value="CARD">Cartão</SelectItem>
                     <SelectItem value="BOLETO">Boleto</SelectItem>
                     <SelectItem value="BOLETO_DDA">Boleto (DDA)</SelectItem>
@@ -1071,7 +1109,8 @@ export default function RegistroPage() {
                   value={form.payment_method || ""}
                   onValueChange={(v) => {
                     setForm({ ...form, payment_method: v });
-                    if (errors.payment_method) setErrors({ ...errors, payment_method: "" });
+                    if (v !== "CARD") setCardType("");
+                    if (errors.payment_method) setErrors({ ...errors, payment_method: "", cardType: "" });
                   }}
                 >
                   <SelectTrigger className={errors.payment_method ? "border-destructive" : ""}>
@@ -1080,6 +1119,7 @@ export default function RegistroPage() {
                   <SelectContent>
                     <SelectItem value="CASH">Dinheiro</SelectItem>
                     <SelectItem value="PIX">Pix</SelectItem>
+                    <SelectItem value="PIX_PARCELADO">Pix Parcelado</SelectItem>
                     <SelectItem value="CARD">Cartão</SelectItem>
                     <SelectItem value="BOLETO">Boleto</SelectItem>
                     <SelectItem value="BOLETO_DDA">Boleto (DDA)</SelectItem>
@@ -1087,6 +1127,59 @@ export default function RegistroPage() {
                   </SelectContent>
                 </Select>
                 {errors.payment_method && <p className="text-xs text-destructive">{errors.payment_method}</p>}
+
+                {/* Card type + installments */}
+                {form.payment_method === "CARD" && (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setCardType("debit"); setErrors({ ...errors, cardType: "" }); }}
+                        className={`flex-1 py-1.5 text-sm rounded-md border transition-colors ${
+                          cardType === "debit"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-input hover:bg-muted"
+                        }`}
+                      >
+                        Débito
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setCardType("credit"); setErrors({ ...errors, cardType: "" }); }}
+                        className={`flex-1 py-1.5 text-sm rounded-md border transition-colors ${
+                          cardType === "credit"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-input hover:bg-muted"
+                        }`}
+                      >
+                        Crédito
+                      </button>
+                    </div>
+                    {errors.cardType && <p className="text-xs text-destructive">{errors.cardType}</p>}
+
+                    {cardType === "credit" && !editingId && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-muted-foreground">Parcelas:</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={48}
+                          value={installments}
+                          onChange={(e) => setInstallments(e.target.value)}
+                          className="w-16 border rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                        />
+                        <span className="text-sm text-muted-foreground">x</span>
+                        {parseInt(installments) > 1 && (
+                          <span className="text-sm font-medium text-primary">
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                              Math.round((parseFloat(parseCurrencyToNumber(form.amount) || "0") / (parseInt(installments) || 1)) * 100) / 100
+                            )} / parcela
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
@@ -1121,8 +1214,8 @@ export default function RegistroPage() {
               />
             </div>
 
-            {/* Repeat Section - only for new transactions */}
-            {!editingId && (
+            {/* Repeat Section - only for new transactions and not when using card installments */}
+            {!editingId && !(form.payment_method === "CARD" && cardType === "credit" && parseInt(installments) > 1) && (
               <div className="space-y-3 pt-2 border-t">
                 <button
                   type="button"
