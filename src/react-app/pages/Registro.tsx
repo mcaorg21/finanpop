@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
 import { Badge } from "@/react-app/components/ui/badge";
-import { Receipt, Plus, Pencil, Copy, Trash2, TrendingUp, TrendingDown, Wallet, Loader2, Paperclip, Camera, X, FileText, Image as ImageIcon, Eye, AlertCircle, Filter, RotateCcw, FileSpreadsheet, FileDown, ChevronDown, ChevronRight, RefreshCw, Repeat2 } from "lucide-react";
+import { Receipt, Plus, Pencil, Copy, Trash2, TrendingUp, TrendingDown, Wallet, Loader2, Paperclip, Camera, X, FileText, Image as ImageIcon, Eye, AlertCircle, Filter, RotateCcw, FileSpreadsheet, FileDown, ChevronDown, ChevronRight, RefreshCw, Repeat2, Search } from "lucide-react";
 import { useToast } from "@/react-app/hooks/use-toast";
 import { useAlert } from "@/react-app/hooks/use-alert";
 
@@ -141,6 +141,7 @@ export default function RegistroPage() {
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -545,6 +546,16 @@ export default function RegistroPage() {
     if (filterCategoryId && t.category_id.toString() !== filterCategoryId) return false;
     if (filterStatus && t.status !== filterStatus) return false;
     if (filterPaymentMethod && t.payment_method !== filterPaymentMethod) return false;
+    if (filterSearch) {
+      const q = filterSearch.toLowerCase();
+      const match =
+        t.description?.toLowerCase().includes(q) ||
+        t.category_name?.toLowerCase().includes(q) ||
+        t.company_name?.toLowerCase().includes(q) ||
+        t.employee_name?.toLowerCase().includes(q) ||
+        t.notes?.toLowerCase().includes(q);
+      if (!match) return false;
+    }
     return true;
   });
 
@@ -567,9 +578,10 @@ export default function RegistroPage() {
     setFilterCategoryId("");
     setFilterStatus("");
     setFilterPaymentMethod("");
+    setFilterSearch("");
   };
 
-  const hasActiveFilters = filterDateStart || filterDateEnd || filterDueDateStart || filterDueDateEnd || filterType || filterCategoryId || filterStatus || filterPaymentMethod;
+  const hasActiveFilters = filterDateStart || filterDateEnd || filterDueDateStart || filterDueDateEnd || filterType || filterCategoryId || filterStatus || filterPaymentMethod || filterSearch;
 
   const handleExportExcel = () => {
     const headers = ["Data", "Vencimento", "Pagamento", "Tipo", "Categoria", "Centro de Custo", "Funcionário", "Empresa", "Valor", "Status", "Forma Pagamento", "Descrição"];
@@ -731,6 +743,24 @@ export default function RegistroPage() {
           <p className="text-muted-foreground mt-1">
             Lançamentos financeiros
           </p>
+        </div>
+        <div className="flex flex-1 sm:max-w-xs relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Buscar descrição, categoria, empresa..."
+            value={filterSearch}
+            onChange={(e) => setFilterSearch(e.target.value)}
+            className="pl-9 pr-8"
+          />
+          {filterSearch && (
+            <button
+              type="button"
+              onClick={() => setFilterSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2">
