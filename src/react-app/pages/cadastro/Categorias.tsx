@@ -152,9 +152,12 @@ export default function CategoriasPage() {
       });
 
       if (res.ok) {
-        setIsOpen(false);
+        if (editingId) {
+          setIsOpen(false);
+          setEditingId(null);
+        }
         setForm(emptyForm);
-        setEditingId(null);
+        setActiveTab("suggestions");
         fetchCategorias();
       }
     } catch (error) {
@@ -310,7 +313,6 @@ export default function CategoriasPage() {
 
       // Refresh categories list
       await fetchCategorias();
-      setIsOpen(false);
     } catch (error) {
       console.error("Error creating complete category:", error);
       alert("Erro ao criar categoria completa. Tente novamente.");
