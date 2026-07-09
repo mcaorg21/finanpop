@@ -938,7 +938,9 @@ app.get("/api/reports", authMiddleware, async (c) => {
     pool.query(
       `SELECT to_char(date, 'YYYY-MM') as date,
               SUM(CASE WHEN type = 'REVENUE' AND status != 'CANCELED' THEN amount ELSE 0 END) as receitas,
-              SUM(CASE WHEN type = 'EXPENSE' AND status != 'CANCELED' THEN amount ELSE 0 END) as despesas
+              SUM(CASE WHEN type = 'EXPENSE' AND status != 'CANCELED' THEN amount ELSE 0 END) as despesas,
+              SUM(CASE WHEN type = 'EXPENSE' AND status = 'PAID' THEN amount ELSE 0 END) as despesas_pagas,
+              SUM(CASE WHEN type = 'EXPENSE' AND status = 'PENDING' THEN amount ELSE 0 END) as despesas_pendentes
        FROM transactions t ${whereClause}
        GROUP BY to_char(date, 'YYYY-MM')
        ORDER BY date ASC`,

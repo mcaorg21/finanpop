@@ -45,6 +45,8 @@ interface ReportData {
     date: string;
     receitas: number;
     despesas: number;
+    despesas_pagas: number;
+    despesas_pendentes: number;
   }>;
   byCategory: Array<{
     name: string;
@@ -198,8 +200,9 @@ export default function RelatoriosPage() {
   // Prepare evolution data (non-cumulative)
   const evolutionData = (reportData?.evolution || []).map((item) => ({
     date: formatDateLabel(item.date),
-    receitas: item.receitas,
-    despesas: item.despesas,
+    receitas: Number(item.receitas),
+    despesas_pagas: Number(item.despesas_pagas),
+    despesas_pendentes: Number(item.despesas_pendentes),
   }));
 
   // Prepare category data with colors
@@ -931,7 +934,14 @@ export default function RelatoriosPage() {
         {/* Evolution Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Evolução de receitas e despesas</CardTitle>
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>Evolução de receitas e despesas</span>
+              <div className="flex items-center gap-4 text-xs font-normal text-muted-foreground">
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-green-500 opacity-80" />Receitas</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-500" />Desp. Pagas</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-orange-400 opacity-70" />Desp. Pendentes</span>
+              </div>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -942,7 +952,10 @@ export default function RelatoriosPage() {
                     <XAxis dataKey="date" className="text-xs" />
                     <YAxis className="text-xs" tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
                     <Tooltip
-                      formatter={(value) => formatCurrency(Number(value))}
+                      formatter={(value, name) => [
+                        formatCurrency(Number(value)),
+                        name === "receitas" ? "Receitas" : name === "despesas_pagas" ? "Desp. Pagas" : "Desp. Pendentes",
+                      ]}
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
@@ -954,18 +967,28 @@ export default function RelatoriosPage() {
                       dataKey="receitas"
                       stroke="#22c55e"
                       fill="#22c55e"
-                      fillOpacity={0.2}
+                      fillOpacity={0.15}
                       strokeWidth={2}
-                      name="Receitas"
+                      name="receitas"
                     />
                     <Area
                       type="monotone"
-                      dataKey="despesas"
+                      dataKey="despesas_pagas"
                       stroke="#ef4444"
                       fill="#ef4444"
                       fillOpacity={0.2}
                       strokeWidth={2}
-                      name="Despesas"
+                      name="despesas_pagas"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="despesas_pendentes"
+                      stroke="#f97316"
+                      fill="#f97316"
+                      fillOpacity={0.15}
+                      strokeWidth={2}
+                      strokeDasharray="5 3"
+                      name="despesas_pendentes"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
