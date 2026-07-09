@@ -223,6 +223,20 @@ app.get("/api/admin/tenants", adminAuthMiddleware, async (c) => {
   return c.json(rows);
 });
 
+app.post("/api/admin/tenants", adminAuthMiddleware, async (c) => {
+  const { name, email, company_type, cnpj, subscription_status, subscription_plan, subscription_ends_at, is_active } = await c.req.json();
+  if (!name || !email) return c.json({ error: "Nome e email são obrigatórios" }, 400);
+  const { rows: exist } = await pool.query("SELECT id FROM tenants WHERE email = $1", [email]);
+  if (exist[0]) return c.json({ error: "Este email já está cadastrado" }, 400);
+  let endsAt = subscription_ends_at || null;
+  const { rows } = await pool.query(
+    `INSERT INTO tenants (name, email, company_type, cnpj, subscription_status, subscription_plan, subscription_ends_at, trial_ends_at, is_active)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8) RETURNING id`,
+    [name, email, company_type || "PJ", cnpj || null, subscription_status || "TRIAL", subscription_plan || "FREE", endsAt, is_active !== false]
+  );
+  return c.json({ success: true, id: rows[0].id }, 201);
+});
+
 app.put("/api/admin/tenants/:id", adminAuthMiddleware, async (c) => {
   const id = c.req.param("id");
   const { subscription_status, subscription_plan, subscription_ends_at, is_active } = await c.req.json();

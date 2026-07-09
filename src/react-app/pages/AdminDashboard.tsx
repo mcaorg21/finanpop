@@ -9,7 +9,7 @@ import { Label } from "@/react-app/components/ui/label";
 import { Input } from "@/react-app/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { useToast } from "@/react-app/hooks/use-toast";
-import { LogOut, Building2, Calendar, Edit, Plus, Users, Eye, EyeOff } from "lucide-react";
+import { LogOut, Building2, Calendar, Edit, Plus, Users, Eye, EyeOff, FileText } from "lucide-react";
 
 interface Tenant {
   id: number;
@@ -43,6 +43,17 @@ const emptyUserForm = {
   is_active: true,
 };
 
+const emptyTenantForm = {
+  name: "",
+  email: "",
+  company_type: "PJ",
+  cnpj: "",
+  subscription_status: "TRIAL",
+  subscription_plan: "FREE",
+  subscription_ends_at: "",
+  is_active: true,
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -67,6 +78,10 @@ export default function AdminDashboard() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userForm, setUserForm] = useState(emptyUserForm);
   const [showPassword, setShowPassword] = useState(false);
+
+  // New tenant
+  const [tenantDialog, setTenantDialog] = useState(false);
+  const [tenantForm, setTenantForm] = useState(emptyTenantForm);
 
   useEffect(() => {
     checkAuth();
@@ -113,6 +128,43 @@ export default function AdminDashboard() {
   const handleLogout = async () => {
     await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
     navigate("/admin");
+  };
+
+  // ---- Tenant create ----
+  const handleOpenNewTenant = () => {
+    setTenantForm(emptyTenantForm);
+    setTenantDialog(true);
+  };
+
+  const handleSaveNewTenant = async () => {
+    if (!tenantForm.name || !tenantForm.email) {
+      toast({ title: "Nome e email são obrigatórios", variant: "destructive" });
+      return;
+    }
+    try {
+      const body: Record<string, unknown> = { ...tenantForm };
+      if (tenantForm.subscription_ends_at) {
+        body.subscription_ends_at = new Date(tenantForm.subscription_ends_at + "T23:59:59").toISOString();
+      } else {
+        body.subscription_ends_at = null;
+      }
+      const res = await fetch("/api/admin/tenants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "Licença criada com sucesso" });
+        setTenantDialog(false);
+        fetchTenants();
+      } else {
+        toast({ title: data.error || "Erro ao criar licença", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Erro de conexão", variant: "destructive" });
+    }
   };
 
   // ---- Tenant edit ----
@@ -323,8 +375,12 @@ export default function AdminDashboard() {
         {/* Tenants Tab */}
         {activeTab === "tenants" && (
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Licenças Cadastradas</CardTitle>
+              <Button size="sm" onClick={handleOpenNewTenant} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Nova Licença
+              </Button>
             </CardHeader>
             <CardContent>
               {loadingTenants ? (
@@ -436,6 +492,122 @@ export default function AdminDashboard() {
           </Card>
         )}
       </div>
+
+      {/* New Tenant Dialog */}
+      <Dialog open={tenantDialog} onOpenChange={setTenantDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Nova Licença
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="t-name">Nome da empresa *</Label>
+                <Input
+                  id="t-name"
+                  placeholder="Ex: Empresa LTDA"
+                  value={tenantForm.name}
+                  onChange={(e) => setTenantForm({ ...tenantForm, name: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="t-email">Email *</Label>
+                <Input
+                  id="t-email"
+                  type="email"
+                  placeholder="contato@empresa.com"
+                  value={tenantForm.email}
+                  onChange={(e) => setTenantForm({ ...tenantForm, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select
+                  value={tenantForm.company_type}
+                  onValueChange={(v) => setTenantForm({ ...tenantForm, company_type: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PJ">Pessoa Jurídica</SelectItem>
+                    <SelectItem value="PF">Pessoa Física</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="t-cnpj">CNPJ / CPF</Label>
+                <Input
+                  id="t-cnpj"
+                  placeholder="Opcional"
+                  value={tenantForm.cnpj}
+                  onChange={(e) => setTenantForm({ ...tenantForm, cnpj: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={tenantForm.subscription_status}
+                  onValueChange={(v) => setTenantForm({ ...tenantForm, subscription_status: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TRIAL">Trial</SelectItem>
+                    <SelectItem value="ACTIVE">Ativa</SelectItem>
+                    <SelectItem value="EXPIRED">Expirada</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Plano</Label>
+                <Select
+                  value={tenantForm.subscription_plan}
+                  onValueChange={(v) => setTenantForm({ ...tenantForm, subscription_plan: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FREE">Gratuito</SelectItem>
+                    <SelectItem value="BASIC">Básico</SelectItem>
+                    <SelectItem value="PRO">Pro</SelectItem>
+                    <SelectItem value="ENTERPRISE">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="t-ends" className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Vencimento
+                </Label>
+                <Input
+                  id="t-ends"
+                  type="date"
+                  value={tenantForm.subscription_ends_at}
+                  onChange={(e) => setTenantForm({ ...tenantForm, subscription_ends_at: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Ativa</Label>
+                <Select
+                  value={tenantForm.is_active ? "true" : "false"}
+                  onValueChange={(v) => setTenantForm({ ...tenantForm, is_active: v === "true" })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Sim</SelectItem>
+                    <SelectItem value="false">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTenantDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSaveNewTenant}>Criar Licença</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Tenant Dialog */}
       <Dialog open={editDialog} onOpenChange={setEditDialog}>
