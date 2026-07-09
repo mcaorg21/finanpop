@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
 import { Badge } from "@/react-app/components/ui/badge";
-import { Receipt, Plus, Pencil, Copy, Trash2, TrendingUp, TrendingDown, Wallet, Loader2, Paperclip, Camera, X, FileText, Image as ImageIcon, Eye, AlertCircle, Filter, RotateCcw, FileSpreadsheet, FileDown, ChevronDown, ChevronRight } from "lucide-react";
+import { Receipt, Plus, Pencil, Copy, Trash2, TrendingUp, TrendingDown, Wallet, Loader2, Paperclip, Camera, X, FileText, Image as ImageIcon, Eye, AlertCircle, Filter, RotateCcw, FileSpreadsheet, FileDown, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useToast } from "@/react-app/hooks/use-toast";
 import { useAlert } from "@/react-app/hooks/use-alert";
 
@@ -778,7 +778,18 @@ export default function RegistroPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="due_date">Data de Vencimento</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="due_date">Data de Vencimento</Label>
+                  <button
+                    type="button"
+                    title="Repetir data de lançamento"
+                    onClick={() => setForm({ ...form, due_date: form.date })}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Repetir
+                  </button>
+                </div>
                 <Input
                   id="due_date"
                   type="date"
@@ -787,15 +798,28 @@ export default function RegistroPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="payment_date">Data de Pagamento</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="payment_date">Data de Pagamento</Label>
+                  <button
+                    type="button"
+                    title="Repetir data de lançamento"
+                    onClick={() => {
+                      setForm({ ...form, payment_date: form.date, status: "PAID" });
+                    }}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Repetir
+                  </button>
+                </div>
                 <Input
                   id="payment_date"
                   type="date"
                   value={form.payment_date}
                   onChange={(e) => {
                     const newPaymentDate = e.target.value;
-                    setForm({ 
-                      ...form, 
+                    setForm({
+                      ...form,
                       payment_date: newPaymentDate,
                       ...(newPaymentDate ? { status: "PAID" } : {})
                     });
