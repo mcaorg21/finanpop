@@ -99,7 +99,7 @@ const emptyForm = {
   category_id: "",
   employee_id: "",
   company_id: "",
-  payment_method: "BOLETO_DDA",
+  payment_method: "",
   status: "PENDING",
   description: "",
   notes: "",
@@ -192,6 +192,7 @@ export default function RegistroPage() {
     if (!form.amount || isNaN(numericAmount) || numericAmount <= 0) newErrors.amount = "Valor deve ser maior que zero";
     if (!form.home_id) newErrors.home_id = "Selecione um centro de custo";
     if (!form.category_id) newErrors.category_id = "Selecione uma categoria";
+    if (!form.payment_method) newErrors.payment_method = "Selecione uma forma de pagamento";
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -1066,9 +1067,15 @@ export default function RegistroPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="payment">Forma de Pagamento *</Label>
-                <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
+                <Select
+                  value={form.payment_method || ""}
+                  onValueChange={(v) => {
+                    setForm({ ...form, payment_method: v });
+                    if (errors.payment_method) setErrors({ ...errors, payment_method: "" });
+                  }}
+                >
+                  <SelectTrigger className={errors.payment_method ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Escolher" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CASH">Dinheiro</SelectItem>
@@ -1079,6 +1086,7 @@ export default function RegistroPage() {
                     <SelectItem value="TRANSFER">Transferência</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.payment_method && <p className="text-xs text-destructive">{errors.payment_method}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
