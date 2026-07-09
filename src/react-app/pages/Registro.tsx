@@ -128,6 +128,9 @@ export default function RegistroPage() {
   const [repeatMonths, setRepeatMonths] = useState("2");
   const [cardType, setCardType] = useState<"" | "credit" | "debit">("");
   const [installments, setInstallments] = useState("2");
+  const [quickCompany, setQuickCompany] = useState("");
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const [showQuickCompany, setShowQuickCompany] = useState(false);
   
   // Filters
   const [filterDateStart, setFilterDateStart] = useState("");
@@ -425,6 +428,36 @@ export default function RegistroPage() {
     setCardType("");
     setInstallments("2");
     setIsOpen(true);
+  };
+
+  const handleQuickAddCompany = async () => {
+    const name = quickCompany.trim();
+    if (!name) return;
+    setIsSavingCompany(true);
+    try {
+      const res = await fetch("/api/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newCompany: Company = { id: data.id, name, is_active: 1 };
+        setCompanies((prev) => [...prev, newCompany]);
+        setForm((prev) => ({ ...prev, company_id: String(data.id) }));
+        setQuickCompany("");
+        setShowQuickCompany(false);
+        toast({ title: `Empresa "${name}" criada e selecionada` });
+      } else {
+        const err = await res.json();
+        toast({ title: err.error || "Erro ao criar empresa", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Erro de conexão", variant: "destructive" });
+    } finally {
+      setIsSavingCompany(false);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1088,20 +1121,49 @@ export default function RegistroPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="company">Empresa</Label>
-                <Select value={form.company_id || "none"} onValueChange={(v) => setForm({ ...form, company_id: v === "none" ? "" : v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Opcional" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma</SelectItem>
-                    {companiesForSelect.map((c) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>
-                        {c.name}{!c.is_active ? " (inativa)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="company">Empresa</Label>
+                  <button
+                    type="button"
+                    onClick={() => { setShowQuickCompany(!showQuickCompany); setQuickCompany(""); }}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Nova
+                  </button>
+                </div>
+                {showQuickCompany ? (
+                  <div className="flex gap-1">
+                    <Input
+                      autoFocus
+                      placeholder="Nome da empresa"
+                      value={quickCompany}
+                      onChange={(e) => setQuickCompany(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleQuickAddCompany(); } if (e.key === "Escape") setShowQuickCompany(false); }}
+                      className="h-9 text-sm"
+                    />
+                    <Button type="button" size="sm" onClick={handleQuickAddCompany} disabled={isSavingCompany || !quickCompany.trim()} className="h-9 px-3">
+                      {isSavingCompany ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setShowQuickCompany(false)} className="h-9 px-2">
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Select value={form.company_id || "none"} onValueChange={(v) => setForm({ ...form, company_id: v === "none" ? "" : v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Opcional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      {companiesForSelect.map((c) => (
+                        <SelectItem key={c.id} value={c.id.toString()}>
+                          {c.name}{!c.is_active ? " (inativa)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="payment">Forma de Pagamento *</Label>
