@@ -1125,7 +1125,7 @@ export default function RelatoriosPage() {
                 <Receipt className="w-5 h-5" />
                 Lançamentos
                 <span className="text-sm font-normal text-muted-foreground">
-                  ({filteredTransactions.length}{selectedPieCategory ? ` de ${transactions.length}` : ""})
+                  ({filteredTransactions.length}{selectedPieCategoryId != null ? ` de ${transactions.length}` : ""})
                 </span>
               </span>
               {selectedPieCategoryName && (
