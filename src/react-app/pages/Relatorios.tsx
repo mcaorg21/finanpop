@@ -34,6 +34,22 @@ interface Company {
   name: string;
 }
 
+interface Transaction {
+  id: number;
+  date: string;
+  due_date: string | null;
+  payment_date: string | null;
+  type: "REVENUE" | "EXPENSE";
+  category_name: string | null;
+  home_name: string | null;
+  employee_name: string | null;
+  company_name: string | null;
+  amount: number;
+  status: "PAID" | "PENDING" | "CANCELED";
+  payment_method: string | null;
+  description: string | null;
+}
+
 interface ReportData {
   totals: {
     receitas: number;
@@ -100,6 +116,8 @@ export default function RelatoriosPage() {
   const [isFiltering, setIsFiltering] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [selectedPieCategory, setSelectedPieCategory] = useState<string | null>(null);
   const reportContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -146,10 +164,17 @@ export default function RelatoriosPage() {
       if (type && type !== "all") params.append("type", type);
       if (status && status !== "all") params.append("status", status);
 
-      const res = await fetch(`/api/reports?${params.toString()}`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
+      const [reportRes, txRes] = await Promise.all([
+        fetch(`/api/reports?${params.toString()}`, { credentials: "include" }),
+        fetch(`/api/transactions?${params.toString()}`, { credentials: "include" }),
+      ]);
+      if (reportRes.ok) {
+        const data = await reportRes.json();
         setReportData(data);
+      }
+      if (txRes.ok) {
+        const txData = await txRes.json();
+        setTransactions(txData);
       }
     } catch (error) {
       console.error("Error fetching report:", error);
@@ -175,7 +200,29 @@ export default function RelatoriosPage() {
   };
 
   const handleApplyFilters = () => {
+    setSelectedPieCategory(null);
     fetchReport();
+  };
+
+  const handlePieClick = (data: any) => {
+    const name = data.name as string;
+    setSelectedPieCategory(prev => prev === name ? null : name);
+  };
+
+  const filteredTransactions = selectedPieCategory
+    ? transactions.filter(t => t.category_name === selectedPieCategory)
+    : transactions;
+
+  const formatDate = (d: string) =>
+    new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+
+  const formatPaymentMethod = (pm: string | null) => {
+    const map: Record<string, string> = {
+      CASH: "Dinheiro", PIX: "Pix", CARD: "Cartão",
+      BOLETO: "Boleto", BOLETO_DDA: "Boleto DDA",
+      TRANSFER: "Transferência", PIX_PARCELADO: "Pix Parc.",
+    };
+    return pm ? (map[pm] || pm) : "—";
   };
 
   const formatCurrency = (value: number) => {
@@ -1003,8 +1050,22 @@ export default function RelatoriosPage() {
 
         {/* Category Distribution */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Distribuição por Categoria</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>Distribuição por Categoria</span>
+              {selectedPieCategory && (
+                <button
+                  onClick={() => setSelectedPieCategory(null)}
+                  className="flex items-center gap-1 text-xs font-normal border rounded-md px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span className="font-medium text-foreground">{selectedPieCategory}</span>
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </CardTitle>
+            {!selectedPieCategory && categoryData.length > 0 && (
+              <p className="text-xs text-muted-foreground">Clique em uma fatia para filtrar os lançamentos</p>
+            )}
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -1021,9 +1082,17 @@ export default function RelatoriosPage() {
                       dataKey="value"
                       label={({ name, percent }) => `${name || ''} ${((percent || 0) * 100).toFixed(0)}%`}
                       labelLine={false}
+                      onClick={handlePieClick}
+                      style={{ cursor: "pointer" }}
                     >
                       {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.color}
+                          opacity={selectedPieCategory && selectedPieCategory !== entry.name ? 0.3 : 1}
+                          stroke={selectedPieCategory === entry.name ? "#fff" : "none"}
+                          strokeWidth={selectedPieCategory === entry.name ? 2 : 0}
+                        />
                       ))}
                     </Pie>
                     <Tooltip formatter={(value) => formatCurrency(Number(value))} />
@@ -1040,7 +1109,87 @@ export default function RelatoriosPage() {
       </div>
       </div>
 
-      
+      {/* Transaction Listing */}
+      {transactions.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Receipt className="w-5 h-5" />
+                Lançamentos
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({filteredTransactions.length}{selectedPieCategory ? ` de ${transactions.length}` : ""})
+                </span>
+              </span>
+              {selectedPieCategory && (
+                <button
+                  onClick={() => setSelectedPieCategory(null)}
+                  className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Categoria: <span className="font-semibold text-foreground">{selectedPieCategory}</span>
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">Cadastro</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">Venc.</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">Tipo</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Categoria</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Descrição</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden lg:table-cell">Empresa</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden lg:table-cell">Forma Pag.</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground">Valor</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredTransactions.map((t) => (
+                    <tr key={t.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{formatDate(t.date)}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{t.due_date ? formatDate(t.due_date) : "—"}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                          t.type === "REVENUE"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        }`}>
+                          {t.type === "REVENUE" ? "Receita" : "Despesa"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 max-w-[130px] truncate">{t.category_name || "—"}</td>
+                      <td className="px-4 py-2.5 max-w-[160px] truncate">{t.description || "—"}</td>
+                      <td className="px-4 py-2.5 max-w-[130px] truncate hidden lg:table-cell text-muted-foreground">{t.company_name || "—"}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap hidden lg:table-cell text-muted-foreground">{formatPaymentMethod(t.payment_method)}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap text-right font-semibold">
+                        <span className={t.type === "REVENUE" ? "text-green-600" : "text-red-600"}>
+                          {formatCurrency(t.amount)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                          t.status === "PAID"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : t.status === "PENDING"
+                            ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                        }`}>
+                          {t.status === "PAID" ? "Pago" : t.status === "PENDING" ? "Pendente" : "Cancelado"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
