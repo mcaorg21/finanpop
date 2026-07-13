@@ -40,6 +40,7 @@ interface Transaction {
   due_date: string | null;
   payment_date: string | null;
   type: "REVENUE" | "EXPENSE";
+  category_id: number | null;
   category_name: string | null;
   home_name: string | null;
   employee_name: string | null;
@@ -65,6 +66,7 @@ interface ReportData {
     despesas_pendentes: number;
   }>;
   byCategory: Array<{
+    category_id: number;
     name: string;
     value: number;
   }>;
@@ -117,7 +119,7 @@ export default function RelatoriosPage() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [selectedPieCategory, setSelectedPieCategory] = useState<string | null>(null);
+  const [selectedPieCategoryId, setSelectedPieCategoryId] = useState<number | null>(null);
   const reportContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -200,18 +202,22 @@ export default function RelatoriosPage() {
   };
 
   const handleApplyFilters = () => {
-    setSelectedPieCategory(null);
+    setSelectedPieCategoryId(null);
     fetchReport();
   };
 
   const handlePieClick = (data: any) => {
-    const name = data.name as string;
-    setSelectedPieCategory(prev => prev === name ? null : name);
+    const id = data.category_id as number;
+    setSelectedPieCategoryId(prev => prev === id ? null : id);
   };
 
-  const filteredTransactions = selectedPieCategory
-    ? transactions.filter(t => t.category_name === selectedPieCategory)
+  const filteredTransactions = selectedPieCategoryId != null
+    ? transactions.filter(t => t.category_id === selectedPieCategoryId)
     : transactions;
+
+  const selectedPieCategoryName = selectedPieCategoryId != null
+    ? (reportData?.byCategory.find(c => c.category_id === selectedPieCategoryId)?.name ?? null)
+    : null;
 
   const formatDate = (d: string) =>
     new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -257,6 +263,7 @@ export default function RelatoriosPage() {
     ...item,
     color: CHART_COLORS[index % CHART_COLORS.length],
   }));
+
 
   // Organize categories hierarchically for selects
   const hierarchicalCategories = (() => {
@@ -1053,17 +1060,17 @@ export default function RelatoriosPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center justify-between">
               <span>Distribuição por Categoria</span>
-              {selectedPieCategory && (
+              {selectedPieCategoryName && (
                 <button
-                  onClick={() => setSelectedPieCategory(null)}
+                  onClick={() => setSelectedPieCategoryId(null)}
                   className="flex items-center gap-1 text-xs font-normal border rounded-md px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <span className="font-medium text-foreground">{selectedPieCategory}</span>
+                  <span className="font-medium text-foreground">{selectedPieCategoryName}</span>
                   <X className="w-3 h-3" />
                 </button>
               )}
             </CardTitle>
-            {!selectedPieCategory && categoryData.length > 0 && (
+            {!selectedPieCategoryId && categoryData.length > 0 && (
               <p className="text-xs text-muted-foreground">Clique em uma fatia para filtrar os lançamentos</p>
             )}
           </CardHeader>
@@ -1089,9 +1096,9 @@ export default function RelatoriosPage() {
                         <Cell
                           key={`cell-${index}`}
                           fill={entry.color}
-                          opacity={selectedPieCategory && selectedPieCategory !== entry.name ? 0.3 : 1}
-                          stroke={selectedPieCategory === entry.name ? "#fff" : "none"}
-                          strokeWidth={selectedPieCategory === entry.name ? 2 : 0}
+                          opacity={selectedPieCategoryId != null && selectedPieCategoryId !== entry.category_id ? 0.3 : 1}
+                          stroke={selectedPieCategoryId === entry.category_id ? "#fff" : "none"}
+                          strokeWidth={selectedPieCategoryId === entry.category_id ? 2 : 0}
                         />
                       ))}
                     </Pie>
@@ -1121,12 +1128,12 @@ export default function RelatoriosPage() {
                   ({filteredTransactions.length}{selectedPieCategory ? ` de ${transactions.length}` : ""})
                 </span>
               </span>
-              {selectedPieCategory && (
+              {selectedPieCategoryName && (
                 <button
-                  onClick={() => setSelectedPieCategory(null)}
+                  onClick={() => setSelectedPieCategoryId(null)}
                   className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Categoria: <span className="font-semibold text-foreground">{selectedPieCategory}</span>
+                  Categoria: <span className="font-semibold text-foreground">{selectedPieCategoryName}</span>
                   <X className="w-3 h-3" />
                 </button>
               )}

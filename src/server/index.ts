@@ -947,7 +947,7 @@ app.get("/api/reports", authMiddleware, async (c) => {
       params
     ),
     pool.query(
-      `SELECT c.name, SUM(t.amount) as value
+      `SELECT t.category_id, c.name, SUM(t.amount) as value
        FROM transactions t JOIN categories c ON t.category_id = c.id
        ${whereClause} AND t.status != 'CANCELED'
        GROUP BY t.category_id, c.name ORDER BY value DESC LIMIT 10`,
