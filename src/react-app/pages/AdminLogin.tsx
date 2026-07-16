@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/react-app/comp
 import { Input } from "@/react-app/components/ui/input";
 import { Button } from "@/react-app/components/ui/button";
 import { Label } from "@/react-app/components/ui/label";
-import { Eye, EyeOff, Lock, User } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -41,17 +41,12 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent pointer-events-none" />
-      
-      <Card className="w-full max-w-md relative shadow-2xl border-slate-700">
-        <CardHeader className="text-center space-y-4 pb-8">
-          <div className="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-            <Lock className="w-8 h-8 text-white" />
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+      <Card className="w-full max-w-md relative shadow-sm">
+        <CardHeader className="text-center space-y-2 pb-8">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Área Administrativa</h1>
-            <CardDescription className="text-base">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">Área Administrativa</h1>
+            <CardDescription className="text-sm">
               FinanPOP Hub Controle Financeiro
             </CardDescription>
           </div>
@@ -63,19 +58,16 @@ export default function AdminLoginPage() {
               <Label htmlFor="email" className="text-sm font-medium">
                 Email
               </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-12 text-base"
-                  required
-                  autoComplete="email"
-                />
-              </div>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-12 text-base"
+                required
+                autoComplete="email"
+              />
             </div>
 
             <div className="space-y-2">
@@ -83,14 +75,13 @@ export default function AdminLoginPage() {
                 Senha
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Digite sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-12 h-12 text-base"
+                  className="pr-12 h-12 text-base"
                   required
                   autoComplete="current-password"
                 />

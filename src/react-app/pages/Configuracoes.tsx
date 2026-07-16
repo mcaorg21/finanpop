@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/rea
 import { Button } from "@/react-app/components/ui/button";
 import { Input } from "@/react-app/components/ui/input";
 import { Label } from "@/react-app/components/ui/label";
-import { Settings, LogOut, Eye, EyeOff, User, Users, Plus, Pencil, Trash2, Loader2, CreditCard, Calendar, Building2, RefreshCw } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/react-app/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
@@ -230,11 +230,8 @@ export default function ConfiguracoesPage() {
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Settings className="w-7 h-7" />
-          Configurações
-        </h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Configurações</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Gerencie sua conta e usuários do sistema
         </p>
       </div>
@@ -242,16 +239,13 @@ export default function ConfiguracoesPage() {
       {/* User Info */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <User className="w-5 h-5" />
-            Usuário Logado
-          </CardTitle>
+          <CardTitle className="text-base font-semibold">Usuário Logado</CardTitle>
           <CardDescription>Informações da sua conta</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-              <User className="w-8 h-8 text-foreground" />
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-semibold text-foreground">
+              {(currentUser?.name || currentUser?.username || "?").charAt(0).toUpperCase()}
             </div>
             <div>
               <p className="font-semibold text-lg">{currentUser?.name || currentUser?.username || "..."}</p>
@@ -265,28 +259,24 @@ export default function ConfiguracoesPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
               Dados da Assinatura
               {subscription?.subscription_status === "EXPIRED" && (
-                <Badge 
-                  variant="destructive" 
-                  className="animate-pulse ml-2"
-                >
+                <Badge variant="destructive" className="ml-2">
                   Assinatura vencida
                 </Badge>
               )}
             </CardTitle>
             <CardDescription>Informações sobre sua empresa e plano</CardDescription>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={fetchSubscription}
             disabled={subscriptionLoading}
             className="gap-2"
           >
-            <RefreshCw className={`w-4 h-4 ${subscriptionLoading ? 'animate-spin' : ''}`} />
+            {subscriptionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
             Atualizar
           </Button>
         </CardHeader>
@@ -299,10 +289,7 @@ export default function ConfiguracoesPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                    <Building2 className="w-4 h-4" />
-                    <span>Empresa</span>
-                  </div>
+                  <p className="text-sm text-muted-foreground mb-1">Empresa</p>
                   <p className="font-medium">{subscription.name}</p>
                   {subscription.cnpj && (
                     <p className="text-sm text-muted-foreground">
@@ -312,10 +299,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                    <CreditCard className="w-4 h-4" />
-                    <span>Plano</span>
-                  </div>
+                  <p className="text-sm text-muted-foreground mb-1">Plano</p>
                   <div className="flex items-center gap-2">
                     <Badge variant={
                       subscription.subscription_plan === "PREMIUM" ? "default" :
@@ -337,10 +321,7 @@ export default function ConfiguracoesPage() {
 
               {(subscription.trial_ends_at || subscription.subscription_ends_at) && (
                 <div className="pt-3 border-t">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>Validade</span>
-                  </div>
+                  <p className="text-sm text-muted-foreground mb-1">Validade</p>
                   <p className="font-medium">
                     {subscription.subscription_status === "TRIAL" && subscription.trial_ends_at ? (
                       `Teste válido até ${new Date(subscription.trial_ends_at).toLocaleDateString("pt-BR")}`
@@ -371,10 +352,7 @@ export default function ConfiguracoesPage() {
                           Gerando link...
                         </>
                       ) : (
-                        <>
-                          <CreditCard className="w-4 h-4" />
-                          Assinar Plano Mensal - R$ 7,90
-                        </>
+                        "Assinar Plano Mensal - R$ 7,90"
                       )}
                     </Button>
                   </div>
@@ -391,14 +369,10 @@ export default function ConfiguracoesPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Usuários do Sistema
-            </CardTitle>
+            <CardTitle className="text-base font-semibold">Usuários do Sistema</CardTitle>
             <CardDescription>Gerencie os usuários que têm acesso ao sistema</CardDescription>
           </div>
-          <Button onClick={openNewUserDialog} size="sm" className="gap-2">
-            <Plus className="w-4 h-4" />
+          <Button onClick={openNewUserDialog} size="sm">
             Novo Usuário
           </Button>
         </CardHeader>
@@ -414,7 +388,7 @@ export default function ConfiguracoesPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Login</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[100px]">Ações</TableHead>
+                  <TableHead className="w-[140px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -430,29 +404,29 @@ export default function ConfiguracoesPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{user.username}</TableCell>
                     <TableCell>
-                      <Badge variant={user.is_active ? "default" : "secondary"}>
+                      <Badge variant={user.is_active ? "success" : "secondary"}>
                         {user.is_active ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="sm"
                           onClick={() => openEditUserDialog(user)}
-                          className="h-8 w-8"
+                          className="h-8 px-2 text-xs"
                         >
-                          <Pencil className="w-4 h-4" />
+                          Editar
                         </Button>
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="sm"
                           onClick={() => handleDeleteUser(user)}
                           disabled={user.is_main_user}
-                          className="h-8 w-8 text-destructive hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-8 px-2 text-xs text-destructive hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
                           title={user.is_main_user ? "Não é possível excluir o usuário principal" : "Excluir usuário"}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          Excluir
                         </Button>
                       </div>
                     </TableCell>
@@ -474,15 +448,11 @@ export default function ConfiguracoesPage() {
       {/* Logout */}
       <Card className="border-destructive/20">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2 text-destructive">
-            <LogOut className="w-5 h-5" />
-            Sair do Sistema
-          </CardTitle>
+          <CardTitle className="text-base font-semibold text-destructive">Sair do Sistema</CardTitle>
           <CardDescription>Encerrar sua sessão atual</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="destructive" onClick={handleLogout} className="gap-2">
-            <LogOut className="w-4 h-4" />
+          <Button variant="destructive" onClick={handleLogout}>
             Sair
           </Button>
         </CardContent>
@@ -556,8 +526,8 @@ export default function ConfiguracoesPage() {
               <div
                 className={`p-3 rounded-lg text-sm ${
                   userMessage.type === "success"
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                    ? "bg-success/10 text-success"
+                    : "bg-danger/10 text-danger"
                 }`}
               >
                 {userMessage.text}

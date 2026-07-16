@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
 import { Badge } from "@/react-app/components/ui/badge";
 import { Switch } from "@/react-app/components/ui/switch";
-import { Building, Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/react-app/hooks/use-toast";
 import { useAlert } from "@/react-app/hooks/use-alert";
 
@@ -243,16 +243,12 @@ export default function EmpresasPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building className="w-7 h-7 text-primary" />
-            Empresas
-          </h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Empresas</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Cadastre e gerencie as empresas
           </p>
         </div>
-        <Button onClick={handleOpenNew} className="gap-2" disabled={!hasHomes}>
-          <Plus className="w-4 h-4" />
+        <Button onClick={handleOpenNew} disabled={!hasHomes}>
           Nova Empresa
         </Button>
       </div>
@@ -261,7 +257,7 @@ export default function EmpresasPage() {
       <Dialog open={showWarningModal} onOpenChange={setShowWarningModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>⚠️ Centro de Custo Necessário</DialogTitle>
+            <DialogTitle>Centro de Custo Necessário</DialogTitle>
             <DialogDescription>
               É necessário cadastrar pelo menos 1 <strong>Centro de Custo</strong> antes de criar fornecedores.
             </DialogDescription>
@@ -368,13 +364,11 @@ export default function EmpresasPage() {
       </Dialog>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="max-w-md">
         <Input
           placeholder="Buscar por nome ou CNPJ..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
         />
       </div>
 
@@ -397,7 +391,7 @@ export default function EmpresasPage() {
                       <TableHead>Telefone</TableHead>
                       <TableHead>E-mail</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="w-[100px]">Ações</TableHead>
+                      <TableHead className="w-[140px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -417,22 +411,22 @@ export default function EmpresasPage() {
                           <TableCell>{e.phone || "-"}</TableCell>
                           <TableCell>{e.email || "-"}</TableCell>
                           <TableCell>
-                            <Badge variant={e.is_active ? "default" : "secondary"}>
+                            <Badge variant={e.is_active ? "success" : "secondary"}>
                               {e.is_active ? "Ativa" : "Inativa"}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(e)}>
-                                <Pencil className="w-4 h-4" />
+                            <div className="flex gap-0.5">
+                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(e)}>
+                                Editar
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                size="sm"
+                                className="h-8 px-2 text-xs text-destructive hover:text-destructive"
                                 onClick={() => handleDelete(e.id)}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                Excluir
                               </Button>
                             </div>
                           </TableCell>
@@ -458,7 +452,7 @@ export default function EmpresasPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="font-semibold">{e.name}</p>
-                            <Badge variant={e.is_active ? "default" : "secondary"} className="text-xs">
+                            <Badge variant={e.is_active ? "success" : "secondary"} className="text-xs">
                               {e.is_active ? "Ativa" : "Inativa"}
                             </Badge>
                           </div>
@@ -466,17 +460,17 @@ export default function EmpresasPage() {
                           {e.phone && <p className="text-sm text-muted-foreground">{e.phone}</p>}
                           {e.email && <p className="text-sm text-muted-foreground">{e.email}</p>}
                         </div>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(e)}>
-                            <Pencil className="w-4 h-4" />
+                        <div className="flex gap-0.5">
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(e)}>
+                            Editar
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
+                            size="sm"
+                            className="h-8 px-2 text-xs text-destructive"
                             onClick={() => handleDelete(e.id)}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            Excluir
                           </Button>
                         </div>
                       </div>

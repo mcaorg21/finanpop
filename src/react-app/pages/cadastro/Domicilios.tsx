@@ -6,7 +6,7 @@ import { Label } from "@/react-app/components/ui/label";
 import { Textarea } from "@/react-app/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/react-app/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
-import { Building2, Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/react-app/hooks/use-toast";
 
 interface Domicilio {
@@ -240,16 +240,12 @@ export default function DomiciliosPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="w-7 h-7 text-primary" />
-            Centros de Custo
-          </h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Centros de Custo</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Cadastre e gerencie os centros de custo
           </p>
         </div>
-        <Button onClick={handleOpenNew} className="gap-2">
-          <Plus className="w-4 h-4" />
+        <Button onClick={handleOpenNew}>
           Novo Centro de Custo
         </Button>
       </div>
@@ -372,13 +368,11 @@ export default function DomiciliosPage() {
       </Dialog>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="max-w-md">
         <Input
           placeholder="Buscar por nome ou cidade..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
         />
       </div>
 
@@ -399,7 +393,7 @@ export default function DomiciliosPage() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Endereço</TableHead>
                       <TableHead>Cidade/UF</TableHead>
-                      <TableHead className="w-[100px]">Ações</TableHead>
+                      <TableHead className="w-[140px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -423,17 +417,17 @@ export default function DomiciliosPage() {
                             {d.city && d.state ? `${d.city}/${d.state}` : d.city || d.state || "-"}
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(d)}>
-                                <Pencil className="w-4 h-4" />
+                            <div className="flex gap-0.5">
+                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(d)}>
+                                Editar
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                size="sm"
+                                className="h-8 px-2 text-xs text-destructive hover:text-destructive"
                                 onClick={() => handleDelete(d.id)}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                Excluir
                               </Button>
                             </div>
                           </TableCell>
@@ -469,17 +463,17 @@ export default function DomiciliosPage() {
                             </p>
                           )}
                         </div>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(d)}>
-                            <Pencil className="w-4 h-4" />
+                        <div className="flex gap-0.5">
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(d)}>
+                            Editar
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
+                            size="sm"
+                            className="h-8 px-2 text-xs text-destructive"
                             onClick={() => handleDelete(d.id)}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            Excluir
                           </Button>
                         </div>
                       </div>

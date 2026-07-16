@@ -9,7 +9,7 @@ import { Label } from "@/react-app/components/ui/label";
 import { Input } from "@/react-app/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { useToast } from "@/react-app/hooks/use-toast";
-import { LogOut, Building2, Calendar, Edit, Plus, Users, Eye, EyeOff, FileText } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 interface Tenant {
   id: number;
@@ -289,57 +289,47 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-white">Painel Administrativo</h1>
-            <p className="text-slate-400">Gerenciamento de Licenças e Usuários</p>
+            <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Painel Administrativo</h1>
+            <p className="text-sm text-muted-foreground mt-1">Gerenciamento de Licenças e Usuários</p>
           </div>
           <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
             Sair
           </Button>
         </div>
 
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
+          <Card size="sm">
             <CardContent>
-              <div className="text-2xl font-bold">{tenants.length}</div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total de Clientes</p>
+              <div className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{tenants.length}</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ativos</CardTitle>
-            </CardHeader>
+          <Card size="sm">
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ativos</p>
+              <div className="mt-2 text-2xl font-semibold tracking-tight tabular-nums text-success">
                 {tenants.filter((t) => t.subscription_status === "ACTIVE").length}
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Trial</CardTitle>
-            </CardHeader>
+          <Card size="sm">
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Trial</p>
+              <div className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">
                 {tenants.filter((t) => t.subscription_status === "TRIAL").length}
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Expirados</CardTitle>
-            </CardHeader>
+          <Card size="sm">
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Expirados</p>
+              <div className="mt-2 text-2xl font-semibold tracking-tight tabular-nums text-danger">
                 {tenants.filter((t) => t.subscription_status === "EXPIRED").length}
               </div>
             </CardContent>
@@ -347,27 +337,25 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-slate-700">
+        <div className="flex gap-2 border-b border-border">
           <button
             onClick={() => setActiveTab("tenants")}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "tenants"
-                ? "border-white text-white"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Building2 className="w-4 h-4" />
             Licenças
           </button>
           <button
             onClick={() => setActiveTab("users")}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "users"
-                ? "border-white text-white"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Users className="w-4 h-4" />
             Usuários
           </button>
         </div>
@@ -377,8 +365,7 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Licenças Cadastradas</CardTitle>
-              <Button size="sm" onClick={handleOpenNewTenant} className="gap-2">
-                <Plus className="w-4 h-4" />
+              <Button size="sm" onClick={handleOpenNewTenant}>
                 Nova Licença
               </Button>
             </CardHeader>
@@ -422,8 +409,8 @@ export default function AdminDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(tenant)}>
-                            <Edit className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(tenant)}>
+                            Editar
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -440,8 +427,7 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Usuários do Sistema</CardTitle>
-              <Button size="sm" onClick={handleOpenNewUser} className="gap-2">
-                <Plus className="w-4 h-4" />
+              <Button size="sm" onClick={handleOpenNewUser}>
                 Novo Usuário
               </Button>
             </CardHeader>
@@ -479,8 +465,8 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell>{formatDate(user.created_at)}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)}>
-                            <Edit className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEditUser(user)}>
+                            Editar
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -497,10 +483,7 @@ export default function AdminDashboard() {
       <Dialog open={tenantDialog} onOpenChange={setTenantDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Nova Licença
-            </DialogTitle>
+            <DialogTitle>Nova Licença</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -576,10 +559,7 @@ export default function AdminDashboard() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="t-ends" className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Vencimento
-                </Label>
+                <Label htmlFor="t-ends">Vencimento</Label>
                 <Input
                   id="t-ends"
                   type="date"
@@ -651,10 +631,7 @@ export default function AdminDashboard() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="subscription_ends_at" className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Data de Vencimento
-              </Label>
+              <Label htmlFor="subscription_ends_at">Data de Vencimento</Label>
               <Input
                 id="subscription_ends_at"
                 type="date"

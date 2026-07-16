@@ -10,7 +10,7 @@ import { Badge } from "@/react-app/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/react-app/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/react-app/components/ui/tabs";
-import { Tag, Plus, Pencil, Trash2, Search, TrendingUp, TrendingDown, Loader2, ChevronRight, Lightbulb } from "lucide-react";
+import { Loader2, ChevronRight } from "lucide-react";
 import { categorySuggestions } from "@/react-app/data/categorySuggestions";
 
 interface Categoria {
@@ -340,16 +340,12 @@ export default function CategoriasPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Tag className="w-7 h-7 text-primary" />
-            Categorias
-          </h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Categorias</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Cadastre tipos de contas a pagar e receber
           </p>
         </div>
-        <Button onClick={handleOpenNew} className="gap-2" disabled={!hasHomes}>
-          <Plus className="w-4 h-4" />
+        <Button onClick={handleOpenNew} disabled={!hasHomes}>
           Nova Categoria
         </Button>
       </div>
@@ -358,7 +354,7 @@ export default function CategoriasPage() {
       <Dialog open={showWarningModal} onOpenChange={setShowWarningModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>⚠️ Centro de Custo Necessário</DialogTitle>
+            <DialogTitle>Centro de Custo Necessário</DialogTitle>
             <DialogDescription>
               É necessário cadastrar pelo menos 1 <strong>Centro de Custo</strong> antes de criar categorias.
             </DialogDescription>
@@ -397,7 +393,6 @@ export default function CategoriasPage() {
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "form" | "suggestions")} className="mt-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="suggestions" disabled={!!editingId}>
-                <Lightbulb className="w-4 h-4 mr-2" />
                 Sugestões
               </TabsTrigger>
               <TabsTrigger value="form">Formulário</TabsTrigger>
@@ -415,24 +410,12 @@ export default function CategoriasPage() {
                           className="flex items-center gap-2 flex-1 cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={() => handleSuggestionClick(suggestion.parent, null, suggestion.kind)}
                         >
-                          <Badge
-                            variant="secondary"
-                            className={
-                              suggestion.kind === "REVENUE"
-                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            }
-                          >
-                            {suggestion.kind === "REVENUE" ? (
-                              <TrendingUp className="w-3 h-3 mr-1" />
-                            ) : (
-                              <TrendingDown className="w-3 h-3 mr-1" />
-                            )}
+                          <Badge variant={suggestion.kind === "REVENUE" ? "success" : "danger"}>
                             {suggestion.kind === "REVENUE" ? "Receita" : "Despesa"}
                           </Badge>
                           <span className="font-semibold">{suggestion.parent}</span>
                           {parentExists && (
-                            <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            <Badge variant="success" className="text-xs">
                               Já adicionada
                             </Badge>
                           )}
@@ -454,10 +437,7 @@ export default function CategoriasPage() {
                               {isSaving ? (
                                 <Loader2 className="w-3 h-3 animate-spin" />
                               ) : (
-                                <>
-                                  <Plus className="w-3 h-3" />
-                                  Adicionar
-                                </>
+                                "Adicionar"
                               )}
                             </Button>
                           )}
@@ -526,15 +506,13 @@ export default function CategoriasPage() {
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="EXPENSE" id="expense" disabled={!!form.parent_id} />
-                  <Label htmlFor="expense" className={`flex items-center gap-2 cursor-pointer ${form.parent_id ? 'opacity-50' : ''}`}>
-                    <TrendingDown className="w-4 h-4 text-red-500" />
+                  <Label htmlFor="expense" className={`cursor-pointer ${form.parent_id ? 'opacity-50' : ''}`}>
                     Despesa
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="REVENUE" id="revenue" disabled={!!form.parent_id} />
-                  <Label htmlFor="revenue" className={`flex items-center gap-2 cursor-pointer ${form.parent_id ? 'opacity-50' : ''}`}>
-                    <TrendingUp className="w-4 h-4 text-green-500" />
+                  <Label htmlFor="revenue" className={`cursor-pointer ${form.parent_id ? 'opacity-50' : ''}`}>
                     Receita
                   </Label>
                 </div>
@@ -594,13 +572,11 @@ export default function CategoriasPage() {
       </Dialog>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="max-w-md">
         <Input
           placeholder="Buscar categoria..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
         />
       </div>
 
@@ -621,7 +597,7 @@ export default function CategoriasPage() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Observações</TableHead>
-                      <TableHead className="w-[140px]">Ações</TableHead>
+                      <TableHead className="w-[200px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -661,47 +637,35 @@ export default function CategoriasPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className={
-                                c.kind === "REVENUE"
-                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                              }
-                            >
-                              {c.kind === "REVENUE" ? (
-                                <TrendingUp className="w-3 h-3 mr-1" />
-                              ) : (
-                                <TrendingDown className="w-3 h-3 mr-1" />
-                              )}
+                            <Badge variant={c.kind === "REVENUE" ? "success" : "danger"}>
                               {c.kind === "REVENUE" ? "Receita" : "Despesa"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">{c.notes || "-"}</TableCell>
                           <TableCell>
-                            <div className="flex gap-1">
+                            <div className="flex gap-0.5">
                               {/* Add subcategory button - only for parent categories */}
                               {!c.parent_id && (
                                 <Button
                                   variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
+                                  size="sm"
+                                  className="h-8 px-2 text-xs"
                                   onClick={() => handleOpenNewSubcategory(c)}
                                   title="Adicionar subcategoria"
                                 >
-                                  <Plus className="w-4 h-4" />
+                                  + Sub
                                 </Button>
                               )}
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(c)}>
-                                <Pencil className="w-4 h-4" />
+                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(c)}>
+                                Editar
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                size="sm"
+                                className="h-8 px-2 text-xs text-destructive hover:text-destructive"
                                 onClick={() => handleDelete(c.id)}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                Excluir
                               </Button>
                             </div>
                           </TableCell>
@@ -731,14 +695,7 @@ export default function CategoriasPage() {
                                 <ChevronRight className="w-4 h-4 text-muted-foreground ml-6" />
                               )}
                               <p className="font-semibold">{c.name}</p>
-                              <Badge
-                                variant="secondary"
-                                className={
-                                  c.kind === "REVENUE"
-                                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                }
-                              >
+                              <Badge variant={c.kind === "REVENUE" ? "success" : "danger"}>
                                 {c.kind === "REVENUE" ? "Receita" : "Despesa"}
                               </Badge>
                             </div>
@@ -759,27 +716,27 @@ export default function CategoriasPage() {
                           </div>
                           {c.notes && <p className="text-sm text-muted-foreground">{c.notes}</p>}
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-0.5">
                           {!c.parent_id && (
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
                               onClick={() => handleOpenNewSubcategory(c)}
                             >
-                              <Plus className="w-4 h-4" />
+                              + Sub
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(c)}>
-                            <Pencil className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(c)}>
+                            Editar
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
+                            size="sm"
+                            className="h-8 px-2 text-xs text-destructive"
                             onClick={() => handleDelete(c.id)}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            Excluir
                           </Button>
                         </div>
                       </div>

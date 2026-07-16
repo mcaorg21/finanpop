@@ -9,8 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/react-app/components/ui/badge";
 import { Switch } from "@/react-app/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
-import { Users, Plus, Pencil, Trash2, Search, Loader2, Star, Copy, Clock, Moon } from "lucide-react";
-import { PixIcon } from "@/react-app/components/icons/PixIcon";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/react-app/hooks/use-toast";
 import { useAlert } from "@/react-app/hooks/use-alert";
 
@@ -491,16 +490,12 @@ export default function FuncionariosPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="w-7 h-7 text-primary" />
-            Funcionários
-          </h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Funcionários</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Cadastre e gerencie os funcionários
           </p>
         </div>
-        <Button onClick={handleOpenNew} className="gap-2" disabled={!hasHomes}>
-          <Plus className="w-4 h-4" />
+        <Button onClick={handleOpenNew} disabled={!hasHomes}>
           Novo Funcionário
         </Button>
       </div>
@@ -509,7 +504,7 @@ export default function FuncionariosPage() {
       <Dialog open={showWarningModal} onOpenChange={setShowWarningModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>⚠️ Centro de Custo Necessário</DialogTitle>
+            <DialogTitle>Centro de Custo Necessário</DialogTitle>
             <DialogDescription>
               É necessário cadastrar pelo menos 1 <strong>Centro de Custo</strong> antes de criar funcionários.
             </DialogDescription>
@@ -656,17 +651,13 @@ export default function FuncionariosPage() {
 
             {/* Work Schedule Section */}
             <div className="space-y-3 pt-2">
-              <Label className="flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Horário de Trabalho
-              </Label>
+              <Label>Horário de Trabalho</Label>
               <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2">
                 {(Object.keys(DAY_LABELS) as Array<keyof WorkSchedule>).map((day) => (
                   <div key={day} className="p-3 bg-muted/50 rounded-lg space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{DAY_LABELS[day]}</span>
                       <div className="flex items-center gap-2">
-                        <Moon className="w-3 h-3 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">Descanso</span>
                         <Switch
                           checked={form.work_schedule[day].is_rest}
@@ -744,10 +735,7 @@ export default function FuncionariosPage() {
       <Dialog open={isPixOpen} onOpenChange={setIsPixOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <PixIcon className="w-5 h-5 text-primary" />
-              Chaves PIX
-            </DialogTitle>
+            <DialogTitle>Chaves PIX</DialogTitle>
             <DialogDescription>
               {selectedEmployee?.name}
             </DialogDescription>
@@ -834,40 +822,38 @@ export default function FuncionariosPage() {
                     className="flex items-center justify-between p-3 bg-background border rounded-lg"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      {pix.is_primary === 1 && (
-                        <Star className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-                      )}
                       <div className="min-w-0">
                         <p className="text-xs text-muted-foreground">
                           {PIX_KEY_TYPES.find((t) => t.value === pix.key_type)?.label || pix.key_type}
+                          {pix.is_primary === 1 && <span className="ml-1.5 font-medium text-foreground">· Principal</span>}
                         </p>
                         <p className="text-sm font-mono truncate">{pix.key_value}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1 flex-shrink-0">
+                    <div className="flex gap-0.5 flex-shrink-0">
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
                         onClick={() => copyToClipboard(pix.key_value)}
                       >
-                        <Copy className="w-4 h-4" />
+                        Copiar
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
                         onClick={() => handleEditPix(pix)}
                       >
-                        <Pencil className="w-4 h-4" />
+                        Editar
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        size="sm"
+                        className="h-8 px-2 text-xs text-destructive hover:text-destructive"
                         onClick={() => handleDeletePix(pix.id)}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        Excluir
                       </Button>
                     </div>
                   </div>
@@ -879,13 +865,11 @@ export default function FuncionariosPage() {
       </Dialog>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="max-w-md">
         <Input
           placeholder="Buscar por nome ou cargo..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
         />
       </div>
 
@@ -908,7 +892,7 @@ export default function FuncionariosPage() {
                       <TableHead>Telefone</TableHead>
                       <TableHead>CPF</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="w-[140px]">Ações</TableHead>
+                      <TableHead className="w-[190px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -928,31 +912,31 @@ export default function FuncionariosPage() {
                           <TableCell>{f.phone || "-"}</TableCell>
                           <TableCell className="font-mono text-sm">{f.document || "-"}</TableCell>
                           <TableCell>
-                            <Badge variant={f.is_active ? "default" : "secondary"}>
+                            <Badge variant={f.is_active ? "success" : "secondary"}>
                               {f.is_active ? "Ativo" : "Inativo"}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-1">
+                            <div className="flex gap-0.5">
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
                                 onClick={() => handleOpenPix(f)}
                                 title="Chaves PIX"
                               >
-                                <PixIcon className="w-4 h-4" />
+                                Pix
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}>
-                                <Pencil className="w-4 h-4" />
+                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(f)}>
+                                Editar
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                size="sm"
+                                className="h-8 px-2 text-xs text-destructive hover:text-destructive"
                                 onClick={() => handleDelete(f.id)}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                Excluir
                               </Button>
                             </div>
                           </TableCell>
@@ -978,7 +962,7 @@ export default function FuncionariosPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="font-semibold">{f.name}</p>
-                            <Badge variant={f.is_active ? "default" : "secondary"} className="text-xs">
+                            <Badge variant={f.is_active ? "success" : "secondary"} className="text-xs">
                               {f.is_active ? "Ativo" : "Inativo"}
                             </Badge>
                           </div>
@@ -986,25 +970,25 @@ export default function FuncionariosPage() {
                           {f.phone && <p className="text-sm text-muted-foreground">{f.phone}</p>}
                           {f.document && <p className="text-sm text-muted-foreground font-mono">{f.document}</p>}
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-0.5">
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
+                            size="sm"
+                            className="h-8 px-2 text-xs"
                             onClick={() => handleOpenPix(f)}
                           >
-                            <PixIcon className="w-4 h-4" />
+                            Pix
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(f)}>
-                            <Pencil className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(f)}>
+                            Editar
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
+                            size="sm"
+                            className="h-8 px-2 text-xs text-destructive"
                             onClick={() => handleDelete(f.id)}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            Excluir
                           </Button>
                         </div>
                       </div>

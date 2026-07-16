@@ -1,5 +1,4 @@
-import { HelpCircle, Home, Building2, Users, Building, Tag, DollarSign, Clock, BarChart3, Settings } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/react-app/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/react-app/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/react-app/components/ui/accordion";
 
 export default function AjudaPage() {
@@ -7,11 +6,8 @@ export default function AjudaPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-2">
-          <HelpCircle className="w-7 h-7 text-primary" />
-          Central de Ajuda
-        </h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Central de Ajuda</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Guia completo de todas as funcionalidades do sistema
         </p>
       </div>
@@ -21,10 +17,7 @@ export default function AjudaPage() {
         {/* Dashboard */}
         <AccordionItem value="dashboard" className="border rounded-lg px-4">
           <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-3">
-              <Home className="w-5 h-5 text-primary" />
-              <span className="font-semibold">Início (Dashboard)</span>
-            </div>
+            <span className="font-semibold">Início (Dashboard)</span>
           </AccordionTrigger>
           <AccordionContent className="space-y-3 text-sm pt-4">
             <p>
@@ -44,23 +37,17 @@ export default function AjudaPage() {
         </AccordionItem>
 
         {/* Cadastros */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              Cadastros
-            </CardTitle>
-            <CardDescription>
+        <AccordionItem value="cadastros" className="border rounded-lg px-4">
+          <AccordionTrigger className="hover:no-underline">
+            <span className="font-semibold">Cadastros</span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-4">
+            <p className="text-sm text-muted-foreground">
               Área para gerenciar todas as informações básicas do sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </p>
             {/* Centro de Custo */}
-            <div className="space-y-2 border-l-2 border-primary pl-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Building2 className="w-4 h-4" />
-                Centro de Custo
-              </h3>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Centro de Custo</h3>
               <p className="text-sm text-muted-foreground">
                 Cadastre os locais, projetos ou unidades que você deseja controlar financeiramente.
                 Por exemplo: diferentes propriedades, filiais, obras, ou projetos específicos.
@@ -72,11 +59,8 @@ export default function AjudaPage() {
             </div>
 
             {/* Funcionários */}
-            <div className="space-y-2 border-l-2 border-primary pl-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Funcionários
-              </h3>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Funcionários</h3>
               <p className="text-sm text-muted-foreground">
                 Cadastre todos os funcionários que trabalham em seus centros de custo. Registre informações como
                 CPF, CTPS, data de admissão, carga horária e escala de trabalho.
@@ -95,11 +79,8 @@ export default function AjudaPage() {
             </div>
 
             {/* Fornecedores */}
-            <div className="space-y-2 border-l-2 border-primary pl-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Building className="w-4 h-4" />
-                Fornecedores
-              </h3>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Fornecedores</h3>
               <p className="text-sm text-muted-foreground">
                 Cadastre empresas e prestadores de serviço com quem você faz negócios.
                 Registre CNPJ, telefone, email e observações importantes.
@@ -111,11 +92,8 @@ export default function AjudaPage() {
             </div>
 
             {/* Categorias */}
-            <div className="space-y-2 border-l-2 border-primary pl-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Tag className="w-4 h-4" />
-                Categorias
-              </h3>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Categorias</h3>
               <p className="text-sm text-muted-foreground">
                 Organize suas receitas e despesas em categorias. O sistema já vem com categorias pré-cadastradas,
                 mas você pode adicionar, editar ou excluir conforme sua necessidade.
@@ -129,27 +107,21 @@ export default function AjudaPage() {
                 a organização e os relatórios.
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </AccordionContent>
+        </AccordionItem>
 
         {/* Registros */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
-              Registros
-            </CardTitle>
-            <CardDescription>
+        <AccordionItem value="registros" className="border rounded-lg px-4">
+          <AccordionTrigger className="hover:no-underline">
+            <span className="font-semibold">Registros</span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-4">
+            <p className="text-sm text-muted-foreground">
               Área para registrar movimentações financeiras e controle de ponto
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </p>
             {/* Receitas e Despesas */}
-            <div className="space-y-2 border-l-2 border-primary pl-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
-                Receitas e Despesas
-              </h3>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Receitas e Despesas</h3>
               <p className="text-sm text-muted-foreground">
                 Registre todos os lançamentos financeiros: pagamentos, recebimentos, contas a pagar e a receber.
               </p>
@@ -173,11 +145,8 @@ export default function AjudaPage() {
             </div>
 
             {/* Folha de Ponto */}
-            <div className="space-y-2 border-l-2 border-primary pl-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Folha de Ponto
-              </h3>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Folha de Ponto</h3>
               <p className="text-sm text-muted-foreground">
                 Controle o ponto eletrônico dos funcionários com registro de entrada, saída, horas trabalhadas e horas extras.
               </p>
@@ -198,16 +167,13 @@ export default function AjudaPage() {
                 A folha pode ser exportada em PDF para impressão e assinatura.
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </AccordionContent>
+        </AccordionItem>
 
         {/* Relatórios */}
         <AccordionItem value="relatorios" className="border rounded-lg px-4">
           <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-3">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              <span className="font-semibold">Relatórios</span>
-            </div>
+            <span className="font-semibold">Relatórios</span>
           </AccordionTrigger>
           <AccordionContent className="space-y-3 text-sm pt-4">
             <p>
@@ -225,8 +191,8 @@ export default function AjudaPage() {
                 <li><strong>Gráficos:</strong> Visualização gráfica da distribuição de receitas e despesas por categoria</li>
               </ul>
             </div>
-            <p className="text-sm bg-muted p-3 rounded-lg">
-              <strong>💡 Dica:</strong> Use a tela de Relatórios para fazer análises mensais, trimestrais ou anuais.
+            <p className="text-sm border-l-2 border-border pl-3 text-muted-foreground">
+              <strong className="text-foreground">Dica:</strong> Use a tela de Relatórios para fazer análises mensais, trimestrais ou anuais.
               Combine filtros para descobrir padrões de gastos e oportunidades de economia.
             </p>
           </AccordionContent>
@@ -235,10 +201,7 @@ export default function AjudaPage() {
         {/* Configurações */}
         <AccordionItem value="configuracoes" className="border rounded-lg px-4">
           <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-3">
-              <Settings className="w-5 h-5 text-primary" />
-              <span className="font-semibold">Configurações</span>
-            </div>
+            <span className="font-semibold">Configurações</span>
           </AccordionTrigger>
           <AccordionContent className="space-y-3 text-sm pt-4">
             <p>
@@ -253,8 +216,8 @@ export default function AjudaPage() {
                 <li><strong>Excluir Usuário:</strong> Remova permanentemente usuários que não são mais necessários</li>
               </ul>
             </div>
-            <p className="text-sm bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200 dark:border-amber-900">
-              <strong>⚠️ Atenção:</strong> Por questões de segurança, sempre use senhas fortes e oriente os usuários
+            <p className="text-sm border-l-2 border-border pl-3 text-muted-foreground">
+              <strong className="text-foreground">Atenção:</strong> Por questões de segurança, sempre use senhas fortes e oriente os usuários
               a trocarem a senha inicial após o primeiro acesso.
             </p>
           </AccordionContent>
@@ -262,9 +225,9 @@ export default function AjudaPage() {
       </Accordion>
 
       {/* FAQ Card */}
-      <Card className="border-primary/20">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Perguntas Frequentes</CardTitle>
+          <CardTitle className="text-base font-semibold">Perguntas Frequentes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div>
