@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, X, ChevronDown, ChevronUp } from "lucide-react";
+import { X, ChevronDown, ChevronUp } from "lucide-react";
 
 interface PendingTransaction {
   id: number;
@@ -54,18 +54,17 @@ export default function PendingAlert() {
   const visible = expanded ? items : items.slice(0, 3);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 shadow-xl rounded-xl border border-orange-400/40 bg-background overflow-hidden">
+    <div className="fixed bottom-4 right-4 z-50 w-80 shadow-md rounded-lg border border-border bg-card overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-orange-500/10 border-b border-orange-400/30">
-        <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0" />
+      <div className="flex items-center gap-2 px-4 py-3 bg-muted/50 border-b border-border">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+          <p className="text-sm font-medium text-foreground">
             {items.length} despesa{items.length > 1 ? "s" : ""} pendente{items.length > 1 ? "s" : ""} este mês
           </p>
           <p className="text-xs text-muted-foreground">
             Total: {formatCurrency(total)}
             {overdue.length > 0 && (
-              <span className="ml-1 text-red-500 font-medium">· {overdue.length} atrasada{overdue.length > 1 ? "s" : ""}</span>
+              <span className="ml-1 text-danger font-medium">· {overdue.length} atrasada{overdue.length > 1 ? "s" : ""}</span>
             )}
           </p>
         </div>
@@ -87,12 +86,12 @@ export default function PendingAlert() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{t.description || t.category_name}</p>
                 {t.due_date && (
-                  <p className={`text-xs ${isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                  <p className={`text-xs ${isOverdue ? "text-danger font-medium" : "text-muted-foreground"}`}>
                     Venc. {formatDate(t.due_date)}{isOverdue ? " · Atrasado" : ""}
                   </p>
                 )}
               </div>
-              <span className="text-sm font-semibold text-red-600 flex-shrink-0">
+              <span className="text-sm font-semibold tabular-nums text-danger flex-shrink-0">
                 {formatCurrency(t.amount)}
               </span>
             </div>

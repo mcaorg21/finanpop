@@ -1,20 +1,5 @@
 import { NavLink, useNavigate, useLocation } from "react-router";
-import {
-  Home,
-  Users,
-  Building2,
-  Building,
-  Tag,
-  Receipt,
-  BarChart3,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  Clock,
-  DollarSign,
-  HelpCircle,
-} from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/react-app/components/ui/button";
 import { cn } from "@/react-app/lib/utils";
 import { useState, useEffect } from "react";
@@ -27,31 +12,29 @@ import {
 } from "@/react-app/components/ui/dropdown-menu";
 
 const navItems = [
-  { icon: Home, label: "Início", path: "/dashboard" },
+  { label: "Início", path: "/dashboard" },
   {
-    icon: Receipt,
     label: "Cadastros",
     items: [
-      { icon: Building2, label: "Centro de Custo", path: "/cadastro/domicilios" },
-      { icon: Tag, label: "Categorias", path: "/cadastro/categorias" },
-      { icon: Building, label: "Fornecedores", path: "/cadastro/empresas" },
-      { icon: Users, label: "Funcionários", path: "/cadastro/funcionarios" },
+      { label: "Centro de Custo", path: "/cadastro/domicilios" },
+      { label: "Categorias", path: "/cadastro/categorias" },
+      { label: "Fornecedores", path: "/cadastro/empresas" },
+      { label: "Funcionários", path: "/cadastro/funcionarios" },
     ],
   },
   {
-    icon: DollarSign,
     label: "Registros",
     items: [
-      { icon: Receipt, label: "Receitas e Despesas", path: "/registro" },
-      { icon: Clock, label: "Folha de Ponto", path: "/folha-ponto" },
+      { label: "Receitas e Despesas", path: "/registro" },
+      { label: "Folha de Ponto", path: "/folha-ponto" },
     ],
   },
-  { icon: BarChart3, label: "Relatórios", path: "/relatorios" },
+  { label: "Relatórios", path: "/relatorios" },
 ];
 
 const menuItems = [
-  { icon: Settings, label: "Configurações", path: "/configuracoes" },
-  { icon: HelpCircle, label: "Ajuda", path: "/ajuda" },
+  { label: "Configurações", path: "/configuracoes" },
+  { label: "Ajuda", path: "/ajuda" },
 ];
 
 interface SubscriptionInfo {
@@ -84,11 +67,11 @@ export default function TopNav() {
           if (data.subscription_status === "TRIAL" && data.trial_ends_at) {
             const trialEnd = new Date(data.trial_ends_at);
             const now = new Date();
-            
+
             // Set both dates to midnight to compare only dates, not times
             trialEnd.setHours(0, 0, 0, 0);
             now.setHours(0, 0, 0, 0);
-            
+
             const diffTime = trialEnd.getTime() - now.getTime();
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             setDaysRemaining(diffDays > 0 ? diffDays : 0);
@@ -110,7 +93,7 @@ export default function TopNav() {
   return (
     <>
       {/* Top Navigation Bar */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-border shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-center justify-between px-4 lg:px-6 h-16">
           {/* Logo */}
           <div className="flex items-center gap-3">
@@ -119,22 +102,21 @@ export default function TopNav() {
               alt="FinanPOP"
               className="w-8 h-8 object-contain"
             />
-            <span className="font-bold text-foreground hidden sm:block">FinanPOP</span>
-            
+            <span className="font-semibold tracking-tight text-foreground hidden sm:block">FinanPOP</span>
+
             {/* Trial Badge */}
             {subscriptionInfo?.subscription_status === "TRIAL" && daysRemaining !== null && (
-              <Badge 
+              <Badge
                 variant={daysRemaining < 7 ? "destructive" : "secondary"}
                 className={cn(
-                  "ml-2 hidden md:flex cursor-pointer hover:opacity-80 transition-opacity",
-                  daysRemaining < 7 && "animate-pulse"
+                  "ml-2 hidden md:flex cursor-pointer hover:opacity-80 transition-opacity"
                 )}
                 onClick={() => navigate("/configuracoes")}
               >
-                {daysRemaining < 7 
+                {daysRemaining < 7
                   ? `Faltam ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} - Reativar Assinatura`
-                  : daysRemaining > 0 
-                    ? `${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} restantes` 
+                  : daysRemaining > 0
+                    ? `${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} restantes`
                     : 'Período de teste expirado'}
               </Badge>
             )}
@@ -151,14 +133,14 @@ export default function TopNav() {
                       <Button
                         variant="ghost"
                         className={cn(
-                          "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                          "flex items-center gap-1 px-3 py-2 text-sm rounded-md transition-colors",
                           hasActiveChild
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                            ? "bg-muted text-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted font-normal"
                         )}
                       >
-                        <item.icon className="w-4 h-4" />
                         {item.label}
+                        <ChevronDown className="w-3.5 h-3.5 opacity-60" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56">
@@ -168,12 +150,11 @@ export default function TopNav() {
                             to={subItem.path}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center gap-3 px-2 py-2 cursor-pointer",
-                                isActive && "bg-accent text-accent-foreground font-medium"
+                                "flex items-center px-2 py-2 cursor-pointer",
+                                isActive && "bg-muted text-foreground font-medium"
                               )
                             }
                           >
-                            <subItem.icon className="w-4 h-4" />
                             {subItem.label}
                           </NavLink>
                         </DropdownMenuItem>
@@ -190,14 +171,13 @@ export default function TopNav() {
                     to={item.path}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                        "flex items-center px-3 py-2 rounded-md text-sm transition-colors",
                         isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                          ? "bg-muted text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
                       )
                     }
                   >
-                    <item.icon className="w-4 h-4" />
                     {item.label}
                   </NavLink>
                 );
@@ -211,8 +191,9 @@ export default function TopNav() {
           <div className="hidden lg:block">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Settings className="w-5 h-5" />
+                <Button variant="ghost" className="gap-1 text-sm text-muted-foreground hover:text-foreground font-normal">
+                  Conta
+                  <ChevronDown className="w-3.5 h-3.5 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -220,18 +201,16 @@ export default function TopNav() {
                   <DropdownMenuItem key={item.path} asChild>
                     <NavLink
                       to={item.path}
-                      className="flex items-center gap-3 px-2 py-2 cursor-pointer"
+                      className="flex items-center px-2 py-2 cursor-pointer"
                     >
-                      <item.icon className="w-4 h-4" />
                       {item.label}
                     </NavLink>
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuItem
-                  className="flex items-center gap-3 px-2 py-2 cursor-pointer text-destructive focus:text-destructive"
+                  className="flex items-center px-2 py-2 cursor-pointer text-destructive focus:text-destructive"
                   onClick={handleLogout}
                 >
-                  <LogOut className="w-4 h-4" />
                   Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -260,23 +239,16 @@ export default function TopNav() {
 
       {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="lg:hidden fixed top-16 left-0 right-0 z-50 bg-white border-b border-border shadow-lg max-h-[calc(100vh-4rem)] overflow-y-auto">
+        <div className="lg:hidden fixed top-16 left-0 right-0 z-50 bg-background border-b border-border shadow-md max-h-[calc(100vh-4rem)] overflow-y-auto">
           <nav className="p-4 space-y-2">
             {navItems.map((item, index) => {
               if ("items" in item) {
-                const hasActiveChild = isDropdownActive(item.items || []);
                 return (
                   <div key={index} className="space-y-1">
-                    <div className={cn(
-                      "px-3 py-2 text-sm font-semibold flex items-center gap-2 rounded-md",
-                      hasActiveChild 
-                        ? "bg-primary text-primary-foreground" 
-                        : "text-foreground"
-                    )}>
-                      <item.icon className="w-4 h-4" />
+                    <div className="px-3 pt-2 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {item.label}
                     </div>
-                    <div className="pl-6 space-y-1">
+                    <div className="space-y-1">
                       {item.items?.map((subItem) => (
                         <NavLink
                           key={subItem.path}
@@ -284,14 +256,13 @@ export default function TopNav() {
                           onClick={() => setMobileOpen(false)}
                           className={({ isActive }) =>
                             cn(
-                              "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                              "flex items-center px-3 py-2 rounded-md text-sm transition-colors",
                               isActive
-                                ? "bg-primary text-primary-foreground font-medium"
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                                ? "bg-muted text-foreground font-medium"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
                             )
                           }
                         >
-                          <subItem.icon className="w-4 h-4" />
                           {subItem.label}
                         </NavLink>
                       ))}
@@ -308,14 +279,13 @@ export default function TopNav() {
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                        "flex items-center px-3 py-2 rounded-md text-sm transition-colors",
                         isActive
-                          ? "bg-primary text-primary-foreground font-medium"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                          ? "bg-muted text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
                       )
                     }
                   >
-                    <item.icon className="w-4 h-4" />
                     {item.label}
                   </NavLink>
                 );
@@ -333,23 +303,21 @@ export default function TopNav() {
                   onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                      "flex items-center px-3 py-2 rounded-md text-sm transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground font-medium"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        ? "bg-muted text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     )
                   }
                 >
-                  <item.icon className="w-4 h-4" />
                   {item.label}
                 </NavLink>
               ))}
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 font-normal"
                 onClick={handleLogout}
               >
-                <LogOut className="w-4 h-4" />
                 Sair
               </Button>
             </div>

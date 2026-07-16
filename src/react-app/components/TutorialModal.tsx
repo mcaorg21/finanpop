@@ -7,7 +7,6 @@ import {
   DialogTitle,
 } from "@/react-app/components/ui/dialog";
 import { Button } from "@/react-app/components/ui/button";
-import { CheckCircle2 } from "lucide-react";
 
 export default function TutorialModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,15 +32,15 @@ export default function TutorialModal() {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">Dicas para começar</DialogTitle>
-          <DialogDescription className="text-base">
+          <DialogTitle className="text-xl font-semibold tracking-tight">Dicas para começar</DialogTitle>
+          <DialogDescription className="text-sm">
             Siga estes passos para configurar o sistema
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
           <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-muted text-foreground flex items-center justify-center text-sm font-medium">
               1
             </div>
             <div className="flex-1">
@@ -52,7 +51,7 @@ export default function TutorialModal() {
           </div>
 
           <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-muted text-foreground flex items-center justify-center text-sm font-medium">
               2
             </div>
             <div className="flex-1">
@@ -63,7 +62,7 @@ export default function TutorialModal() {
           </div>
 
           <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-muted text-foreground flex items-center justify-center text-sm font-medium">
               3
             </div>
             <div className="flex-1">
@@ -74,7 +73,7 @@ export default function TutorialModal() {
           </div>
 
           <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-muted text-foreground flex items-center justify-center text-sm font-medium">
               4
             </div>
             <div className="flex-1">
@@ -85,7 +84,7 @@ export default function TutorialModal() {
           </div>
 
           <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-muted text-foreground flex items-center justify-center text-sm font-medium">
               5
             </div>
             <div className="flex-1">
@@ -101,7 +100,6 @@ export default function TutorialModal() {
             Fechar
           </Button>
           <Button onClick={handleDismiss}>
-            <CheckCircle2 className="w-4 h-4 mr-2" />
             Não mostrar novamente
           </Button>
         </div>
