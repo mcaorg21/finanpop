@@ -8,7 +8,9 @@ import { Label } from "@/react-app/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/react-app/components/ui/popover";
 import { Checkbox } from "@/react-app/components/ui/checkbox";
-import { BarChart3, TrendingUp, TrendingDown, Wallet, FileDown, Filter, Receipt, Loader2, FileSpreadsheet, FileText, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
+import { Badge } from "@/react-app/components/ui/badge";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useAlert } from "@/react-app/hooks/use-alert";
 
@@ -72,9 +74,10 @@ interface ReportData {
   }>;
 }
 
+// Manter em sincronia com --chart-* do index.css (hex literais: html2canvas não resolve var() em SVG)
 const CHART_COLORS = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6",
-  "#3b82f6", "#8b5cf6", "#ec4899", "#6366f1", "#06b6d4"
+  "#526B94", "#478566", "#B85C63", "#A3853F", "#8A7BA8",
+  "#49818F", "#AD6E52", "#5C7A46", "#A6708F", "#83888F"
 ];
 
 type DateField = "date" | "due_date" | "payment_date";
@@ -501,26 +504,21 @@ export default function RelatoriosPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="w-7 h-7 text-primary" />
-            Relatórios
-          </h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Relatórios</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Análise financeira com filtros
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={handleExportPDF} className="gap-2" disabled={isExportingPdf}>
-            {isExportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-            <span className="hidden sm:inline">PDF</span>
+            {isExportingPdf && <Loader2 className="w-4 h-4 animate-spin" />}
+            PDF
           </Button>
-          <Button variant="outline" onClick={handleExportExcel} className="gap-2">
-            <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">Excel</span>
+          <Button variant="outline" onClick={handleExportExcel}>
+            Excel
           </Button>
-          <Button variant="outline" onClick={handleExportCSV} className="gap-2">
-            <FileDown className="w-4 h-4" />
-            <span className="hidden sm:inline">CSV</span>
+          <Button variant="outline" onClick={handleExportCSV}>
+            CSV
           </Button>
         </div>
       </div>
@@ -529,10 +527,7 @@ export default function RelatoriosPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Filter className="w-5 h-5" />
-              Filtros
-            </CardTitle>
+            <CardTitle className="text-base font-semibold">Filtros</CardTitle>
             <Button 
               variant="ghost" 
               size="sm" 
@@ -760,7 +755,7 @@ export default function RelatoriosPage() {
             </div>
             <div className="flex items-end">
               <Button className="w-full gap-2" onClick={handleApplyFilters} disabled={isFiltering}>
-                {isFiltering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Filter className="w-4 h-4" />}
+                {isFiltering && <Loader2 className="w-4 h-4 animate-spin" />}
                 Aplicar
               </Button>
             </div>
@@ -925,7 +920,7 @@ export default function RelatoriosPage() {
           {/* Mobile: Apply button */}
           <div className="mt-3 lg:hidden">
             <Button className="w-full gap-2 h-9" onClick={handleApplyFilters} disabled={isFiltering}>
-              {isFiltering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Filter className="w-4 h-4" />}
+              {isFiltering && <Loader2 className="w-4 h-4 animate-spin" />}
               Aplicar
             </Button>
           </div>
@@ -936,49 +931,37 @@ export default function RelatoriosPage() {
       <div ref={reportContentRef} className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Receitas</CardTitle>
-            <TrendingUp className="w-5 h-5 text-green-600" />
-          </CardHeader>
+        <Card size="sm">
           <CardContent>
-            <p className="text-xl lg:text-2xl font-bold text-green-600">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Receitas</p>
+            <p className="mt-2 text-xl lg:text-2xl font-semibold tracking-tight tabular-nums text-success">
               {formatCurrency(reportData?.totals.receitas || 0)}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Despesas</CardTitle>
-            <TrendingDown className="w-5 h-5 text-red-600" />
-          </CardHeader>
+        <Card size="sm">
           <CardContent>
-            <p className="text-xl lg:text-2xl font-bold text-red-600">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Despesas</p>
+            <p className="mt-2 text-xl lg:text-2xl font-semibold tracking-tight tabular-nums text-danger">
               {formatCurrency(reportData?.totals.despesas || 0)}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Saldo</CardTitle>
-            <Wallet className="w-5 h-5 text-primary" />
-          </CardHeader>
+        <Card size="sm">
           <CardContent>
-            <p className={`text-xl lg:text-2xl font-bold ${(reportData?.totals.saldo || 0) >= 0 ? "text-primary" : "text-red-600"}`}>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Saldo</p>
+            <p className={`mt-2 text-xl lg:text-2xl font-semibold tracking-tight tabular-nums ${(reportData?.totals.saldo || 0) >= 0 ? "text-success" : "text-danger"}`}>
               {formatCurrency(reportData?.totals.saldo || 0)}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Lançamentos</CardTitle>
-            <Receipt className="w-5 h-5 text-muted-foreground" />
-          </CardHeader>
+        <Card size="sm">
           <CardContent>
-            <p className="text-xl lg:text-2xl font-bold">{reportData?.totals.lancamentos || 0}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lançamentos</p>
+            <p className="mt-2 text-xl lg:text-2xl font-semibold tracking-tight tabular-nums">{reportData?.totals.lancamentos || 0}</p>
           </CardContent>
         </Card>
       </div>
@@ -988,12 +971,12 @@ export default function RelatoriosPage() {
         {/* Evolution Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center justify-between">
+            <CardTitle className="text-base font-semibold flex items-center justify-between">
               <span>Evolução de receitas e despesas</span>
               <div className="flex items-center gap-4 text-xs font-normal text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-green-500 opacity-80" />Receitas</span>
-                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-500" />Desp. Pagas</span>
-                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-orange-400 opacity-70" />Desp. Pendentes</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-[#478566]" />Receitas</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-[#B85C63]" />Desp. Pagas</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-[#A3853F]" />Desp. Pendentes</span>
               </div>
             </CardTitle>
           </CardHeader>
@@ -1019,27 +1002,27 @@ export default function RelatoriosPage() {
                     <Area
                       type="monotone"
                       dataKey="receitas"
-                      stroke="#22c55e"
-                      fill="#22c55e"
-                      fillOpacity={0.15}
+                      stroke="#478566"
+                      fill="#478566"
+                      fillOpacity={0.12}
                       strokeWidth={2}
                       name="receitas"
                     />
                     <Area
                       type="monotone"
                       dataKey="despesas_pagas"
-                      stroke="#ef4444"
-                      fill="#ef4444"
-                      fillOpacity={0.2}
+                      stroke="#B85C63"
+                      fill="#B85C63"
+                      fillOpacity={0.15}
                       strokeWidth={2}
                       name="despesas_pagas"
                     />
                     <Area
                       type="monotone"
                       dataKey="despesas_pendentes"
-                      stroke="#f97316"
-                      fill="#f97316"
-                      fillOpacity={0.15}
+                      stroke="#A3853F"
+                      fill="#A3853F"
+                      fillOpacity={0.1}
                       strokeWidth={2}
                       strokeDasharray="5 3"
                       name="despesas_pendentes"
@@ -1058,7 +1041,7 @@ export default function RelatoriosPage() {
         {/* Category Distribution */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center justify-between">
+            <CardTitle className="text-base font-semibold flex items-center justify-between">
               <span>Distribuição por Categoria</span>
               {selectedPieCategoryName && (
                 <button
@@ -1120,9 +1103,8 @@ export default function RelatoriosPage() {
       {transactions.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center justify-between">
+            <CardTitle className="text-base font-semibold flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Receipt className="w-5 h-5" />
                 Lançamentos
                 <span className="text-sm font-normal text-muted-foreground">
                   ({filteredTransactions.length}{selectedPieCategoryId != null ? ` de ${transactions.length}` : ""})
@@ -1141,58 +1123,48 @@ export default function RelatoriosPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">Cadastro</th>
-                    <th className="text-left px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">Venc.</th>
-                    <th className="text-left px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">Tipo</th>
-                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Categoria</th>
-                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Descrição</th>
-                    <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden lg:table-cell">Empresa</th>
-                    <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden lg:table-cell">Forma Pag.</th>
-                    <th className="text-right px-4 py-2 font-medium text-muted-foreground">Valor</th>
-                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cadastro</TableHead>
+                    <TableHead>Venc.</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="hidden lg:table-cell">Empresa</TableHead>
+                    <TableHead className="hidden lg:table-cell">Forma Pag.</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredTransactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{formatDate(t.date)}</td>
-                      <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{t.due_date ? formatDate(t.due_date) : "—"}</td>
-                      <td className="px-4 py-2.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                          t.type === "REVENUE"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        }`}>
+                    <TableRow key={t.id}>
+                      <TableCell className="text-muted-foreground">{formatDate(t.date)}</TableCell>
+                      <TableCell className="text-muted-foreground">{t.due_date ? formatDate(t.due_date) : "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={t.type === "REVENUE" ? "success" : "danger"}>
                           {t.type === "REVENUE" ? "Receita" : "Despesa"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 max-w-[130px] truncate">{t.category_name || "—"}</td>
-                      <td className="px-4 py-2.5 max-w-[160px] truncate">{t.description || "—"}</td>
-                      <td className="px-4 py-2.5 max-w-[130px] truncate hidden lg:table-cell text-muted-foreground">{t.company_name || "—"}</td>
-                      <td className="px-4 py-2.5 whitespace-nowrap hidden lg:table-cell text-muted-foreground">{formatPaymentMethod(t.payment_method)}</td>
-                      <td className="px-4 py-2.5 whitespace-nowrap text-right font-semibold">
-                        <span className={t.type === "REVENUE" ? "text-green-600" : "text-red-600"}>
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[130px] truncate">{t.category_name || "—"}</TableCell>
+                      <TableCell className="max-w-[160px] truncate">{t.description || "—"}</TableCell>
+                      <TableCell className="max-w-[130px] truncate hidden lg:table-cell text-muted-foreground">{t.company_name || "—"}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">{formatPaymentMethod(t.payment_method)}</TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        <span className={t.type === "REVENUE" ? "text-success" : "text-danger"}>
                           {formatCurrency(t.amount)}
                         </span>
-                      </td>
-                      <td className="px-4 py-2.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                          t.status === "PAID"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : t.status === "PENDING"
-                            ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                        }`}>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={t.status === "PAID" ? "success" : t.status === "PENDING" ? "outline" : "secondary"}>
                           {t.status === "PAID" ? "Pago" : t.status === "PENDING" ? "Pendente" : "Cancelado"}
-                        </span>
-                      </td>
-                    </tr>
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

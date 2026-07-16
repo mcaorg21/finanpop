@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
 import { Badge } from "@/react-app/components/ui/badge";
-import { Clock, Plus, Pencil, Trash2, Loader2, FileText, Download, Lock, Unlock } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useToast } from "@/react-app/hooks/use-toast";
 import { useAlert } from "@/react-app/hooks/use-alert";
 import html2canvas from "html2canvas";
@@ -695,16 +695,12 @@ export default function FolhaPontoPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Clock className="w-7 h-7 text-primary" />
-            Folha de Ponto
-          </h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Folha de Ponto</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Controle de ponto dos funcionários
           </p>
         </div>
-        <Button onClick={() => setIsNewOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
+        <Button onClick={() => setIsNewOpen(true)}>
           <span className="hidden sm:inline">Nova Folha</span>
           <span className="sm:hidden">Novo</span>
         </Button>
@@ -882,26 +878,26 @@ export default function FolhaPontoPage() {
                           {MONTHS.find(m => m.value === t.month)?.label} / {t.year}
                         </TableCell>
                         <TableCell className="font-mono">{t.total_worked || "-"}</TableCell>
-                        <TableCell className={`font-mono ${t.total_overtime?.startsWith("-") ? "text-red-600" : "text-green-600"}`}>
+                        <TableCell className={`font-mono ${t.total_overtime?.startsWith("-") ? "text-danger" : "text-success"}`}>
                           {t.total_overtime || "-"}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={t.status === "CLOSED" ? "secondary" : "default"}>
+                          <Badge variant={t.status === "CLOSED" ? "secondary" : "success"}>
                             {t.status === "CLOSED" ? "Fechada" : "Aberta"}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDetail(t)}>
-                              <Pencil className="w-4 h-4" />
+                          <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleOpenDetail(t)}>
+                              Editar
                             </Button>
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-destructive hover:text-destructive"
                               onClick={() => handleDelete(t.id)}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              Excluir
                             </Button>
                           </div>
                         </TableCell>
@@ -928,17 +924,17 @@ export default function FolhaPontoPage() {
                           </Badge>
                         </div>
                       </div>
-                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDetail(t)}>
-                          <Pencil className="w-4 h-4" />
+                      <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleOpenDetail(t)}>
+                          Editar
                         </Button>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
+                          size="sm"
+                          className="h-8 px-2 text-xs text-destructive"
                           onClick={() => handleDelete(t.id)}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          Excluir
                         </Button>
                       </div>
                     </div>
@@ -956,36 +952,21 @@ export default function FolhaPontoPage() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div>
-                <DialogTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Folha de Ponto
-                </DialogTitle>
+                <DialogTitle>Folha de Ponto</DialogTitle>
                 <DialogDescription>
                   {selectedTimesheet?.employee_name} - {MONTHS.find(m => m.value === selectedTimesheet?.month)?.label} / {selectedTimesheet?.year}
                 </DialogDescription>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-2">
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">PDF</span>
+                <Button variant="outline" size="sm" onClick={handleExportPDF}>
+                  PDF
                 </Button>
                 <Button
                   variant={selectedTimesheet?.status === "CLOSED" ? "outline" : "secondary"}
                   size="sm"
                   onClick={handleToggleStatus}
-                  className="gap-2"
                 >
-                  {selectedTimesheet?.status === "CLOSED" ? (
-                    <>
-                      <Unlock className="w-4 h-4" />
-                      <span className="hidden sm:inline">Reabrir</span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="w-4 h-4" />
-                      <span className="hidden sm:inline">Fechar</span>
-                    </>
-                  )}
+                  {selectedTimesheet?.status === "CLOSED" ? "Reabrir" : "Fechar"}
                 </Button>
               </div>
             </div>
@@ -1050,7 +1031,6 @@ export default function FolhaPontoPage() {
                     disabled={selectedTimesheet?.status === "CLOSED"}
                     className="text-xs"
                   >
-                    <Trash2 className="h-3 w-3 mr-1" />
                     Limpar Tudo
                   </Button>
                 </div>
@@ -1176,7 +1156,7 @@ export default function FolhaPontoPage() {
                           )}
                         </TableCell>
                         <TableCell className={`text-center font-mono ${isPrinting ? "p-0.5 text-[10px]" : ""}`}>{entry.hours_expected}</TableCell>
-                        <TableCell className={`text-center font-mono ${isPrinting ? "p-0.5 text-[10px]" : ""} ${entry.overtime.startsWith("-") ? "text-red-600" : "text-green-600"}`}>
+                        <TableCell className={`text-center font-mono ${isPrinting ? "p-0.5 text-[10px]" : ""} ${entry.overtime.startsWith("-") ? "text-danger" : "text-success"}`}>
                           {entry.overtime}
                         </TableCell>
                         {!isPrinting && (
@@ -1188,7 +1168,7 @@ export default function FolhaPontoPage() {
                               disabled={isClosed}
                               className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <X className="h-3 w-3" />
                             </Button>
                           </TableCell>
                         )}
@@ -1201,7 +1181,7 @@ export default function FolhaPontoPage() {
                     <TableCell className={`text-center font-mono ${isPrinting ? "p-0.5 text-[10px]" : ""}`}>{totalWorked}</TableCell>
                     <TableCell className={isPrinting ? "p-0.5" : ""}></TableCell>
                     <TableCell className={`text-center font-mono ${isPrinting ? "p-0.5 text-[10px]" : ""}`}>{totalExpected}</TableCell>
-                    <TableCell className={`text-center font-mono ${isPrinting ? "p-0.5 text-[10px]" : ""} ${totalOvertime.startsWith("-") ? "text-red-600" : "text-green-600"}`}>
+                    <TableCell className={`text-center font-mono ${isPrinting ? "p-0.5 text-[10px]" : ""} ${totalOvertime.startsWith("-") ? "text-danger" : "text-success"}`}>
                       {totalOvertime}
                     </TableCell>
                     {!isPrinting && <TableCell></TableCell>}

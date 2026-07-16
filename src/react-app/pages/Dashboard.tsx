@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/react-app/components/ui/card";
-import { Building2, Users, Tag, Receipt, TrendingUp, TrendingDown, Wallet, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface Stats {
   centrosCusto: number;
@@ -53,53 +53,44 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl lg:text-3xl font-bold">Bem-vindo!</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Bem-vindo!</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Aqui está o resumo do seu controle financeiro
         </p>
       </div>
 
       {/* Financial Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Receitas
-            </CardTitle>
-            <TrendingUp className="w-5 h-5 text-emerald-600" />
-          </CardHeader>
+        <Card size="sm">
           <CardContent>
-            <p className="text-2xl lg:text-3xl font-bold text-emerald-600">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Receitas
+            </p>
+            <p className="mt-2 text-2xl lg:text-3xl font-semibold tracking-tight tabular-nums text-success">
               {formatCurrency(stats?.receitas || 0)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Este mês</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Despesas
-            </CardTitle>
-            <TrendingDown className="w-5 h-5 text-rose-600" />
-          </CardHeader>
+        <Card size="sm">
           <CardContent>
-            <p className="text-2xl lg:text-3xl font-bold text-rose-600">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Despesas
+            </p>
+            <p className="mt-2 text-2xl lg:text-3xl font-semibold tracking-tight tabular-nums text-danger">
               {formatCurrency(stats?.despesas || 0)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Este mês</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Saldo
-            </CardTitle>
-            <Wallet className="w-5 h-5 text-foreground" />
-          </CardHeader>
+        <Card size="sm">
           <CardContent>
-            <p className={`text-2xl lg:text-3xl font-bold ${(stats?.saldo || 0) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Saldo
+            </p>
+            <p className={`mt-2 text-2xl lg:text-3xl font-semibold tracking-tight tabular-nums ${(stats?.saldo || 0) >= 0 ? "text-success" : "text-danger"}`}>
               {formatCurrency(stats?.saldo || 0)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Este mês</p>
@@ -111,53 +102,41 @@ export default function DashboardPage() {
 
       {/* Quick Stats */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Cadastros</h2>
+        <h2 className="text-base font-semibold tracking-tight mb-4">Cadastros</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card size="sm">
+            <CardContent>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Centros de Custo
-              </CardTitle>
-              <Building2 className="w-5 h-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats?.centrosCusto || 0}</p>
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{stats?.centrosCusto || 0}</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card size="sm">
+            <CardContent>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Funcionários
-              </CardTitle>
-              <Users className="w-5 h-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats?.funcionarios || 0}</p>
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{stats?.funcionarios || 0}</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card size="sm">
+            <CardContent>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Categorias
-              </CardTitle>
-              <Tag className="w-5 h-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats?.categorias || 0}</p>
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{stats?.categorias || 0}</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Lançamentos
-              </CardTitle>
-              <Receipt className="w-5 h-5 text-muted-foreground" />
-            </CardHeader>
+          <Card size="sm">
             <CardContent>
-              <p className="text-3xl font-bold">{stats?.lancamentos || 0}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Lançamentos
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{stats?.lancamentos || 0}</p>
             </CardContent>
           </Card>
         </div>
