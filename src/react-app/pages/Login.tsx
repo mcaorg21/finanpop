@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/react-app/comp
 import { Input } from "@/react-app/components/ui/input";
 import { Button } from "@/react-app/components/ui/button";
 import { Label } from "@/react-app/components/ui/label";
-import { Eye, EyeOff, Lock, User } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -60,19 +60,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent pointer-events-none" />
-      
-      <Card className="w-full max-w-md relative shadow-2xl shadow-primary/10 border-primary/20">
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+      <Card className="w-full max-w-md relative shadow-sm">
         <CardHeader className="text-center space-y-4 pb-8">
           <img
             src="/logo-secgo.png"
             alt="FinanPOP"
-            className="mx-auto w-24 h-24 object-contain"
+            className="mx-auto w-16 h-16 object-contain"
           />
           <div>
-            <h1 className="text-2xl font-bold text-foreground">FinanPOP</h1>
-            <CardDescription className="text-base">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">FinanPOP</h1>
+            <CardDescription className="text-sm">
               Hub Controle Financeiro
             </CardDescription>
           </div>
@@ -84,19 +82,16 @@ export default function LoginPage() {
               <Label htmlFor="username" className="text-sm font-medium">
                 Usuário
               </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="Digite seu usuário"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10 h-12 text-base"
-                  required
-                  autoComplete="username"
-                />
-              </div>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Digite seu usuário"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="h-12 text-base"
+                required
+                autoComplete="username"
+              />
             </div>
 
             <div className="space-y-2">
@@ -104,14 +99,13 @@ export default function LoginPage() {
                 Senha
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Digite sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-12 h-12 text-base"
+                  className="pr-12 h-12 text-base"
                   required
                   autoComplete="current-password"
                 />
@@ -133,7 +127,7 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
+              className="w-full h-12 text-base font-semibold"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -154,7 +148,7 @@ export default function LoginPage() {
                 onClick={handleDevLogin}
                 disabled={isLoading}
               >
-                🔧 Dev Login (cgontijo)
+                Dev Login (cgontijo)
               </Button>
             )}
 

@@ -6,7 +6,6 @@ import { Label } from "@/react-app/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/react-app/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/react-app/components/ui/radio-group";
 import { useToast } from "@/react-app/hooks/use-toast";
-import { Building2, User, Lock, FileText, Mail, Shield } from "lucide-react";
 
 // CNPJ validation function
 const validateCNPJ = (cnpj: string): boolean => {
@@ -305,8 +304,8 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+      <Card className="w-full max-w-md shadow-sm">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
             <img
@@ -315,14 +314,14 @@ export default function RegisterPage() {
               className="h-12"
             />
           </div>
-          <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>
+          <CardTitle className="text-xl font-semibold tracking-tight text-center">Criar Conta</CardTitle>
           <CardDescription className="text-center">
             Cadastre-se para começar a usar o sistema
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border-2 border-primary/20">
+            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
               <Label className="text-base font-semibold">Tipo de Cadastro</Label>
               <RadioGroup
                 value={personType}
@@ -361,10 +360,7 @@ export default function RegisterPage() {
             {personType && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Email *
-                  </Label>
+                  <Label htmlFor="email">Email *</Label>
                   <div className="flex gap-2">
                     <Input
                       id="email"
@@ -389,12 +385,9 @@ export default function RegisterPage() {
                 </div>
 
                 {codeSent && !codeVerified && (
-                  <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <Label htmlFor="verification_code" className="flex items-center gap-2 text-blue-900">
-                      <Shield className="h-4 w-4" />
-                      Código de Verificação *
-                    </Label>
-                    <p className="text-sm text-blue-700">
+                  <div className="space-y-2 p-4 bg-muted/50 border border-border rounded-lg">
+                    <Label htmlFor="verification_code">Código de Verificação *</Label>
+                    <p className="text-sm text-muted-foreground">
                       Digite o código de 6 dígitos enviado para seu email
                     </p>
                     <div className="flex gap-2">
@@ -422,9 +415,9 @@ export default function RegisterPage() {
                 )}
 
                 {codeVerified && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
-                    <p className="text-sm font-medium text-green-800">✓ Email verificado com sucesso!</p>
-                    <p className="text-xs text-green-700 mt-1">Agora preencha os dados abaixo para criar sua conta</p>
+                  <div className="p-3 bg-success/10 rounded-lg text-center">
+                    <p className="text-sm font-medium text-success">Email verificado com sucesso!</p>
+                    <p className="text-xs text-muted-foreground mt-1">Agora preencha os dados abaixo para criar sua conta</p>
                   </div>
                 )}
 
@@ -433,10 +426,7 @@ export default function RegisterPage() {
                     {personType === "PJ" && (
                       <>
                         <div className="space-y-2">
-                          <Label htmlFor="company_name" className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4" />
-                            Nome da Empresa
-                          </Label>
+                          <Label htmlFor="company_name">Nome da Empresa</Label>
                           <Input
                             id="company_name"
                             name="company_name"
@@ -450,10 +440,7 @@ export default function RegisterPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="cnpj" className="flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            CNPJ
-                          </Label>
+                          <Label htmlFor="cnpj">CNPJ</Label>
                           <Input
                             id="cnpj"
                             name="cnpj"
@@ -470,10 +457,7 @@ export default function RegisterPage() {
                     )}
                     
                     <div className="space-y-2">
-                      <Label htmlFor="admin_name" className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        Seu Nome
-                      </Label>
+                      <Label htmlFor="admin_name">Seu Nome</Label>
                       <Input
                         id="admin_name"
                         name="admin_name"
@@ -487,10 +471,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="username" className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        Login
-                      </Label>
+                      <Label htmlFor="username">Login</Label>
                       <Input
                         id="username"
                         name="username"
@@ -508,10 +489,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="password" className="flex items-center gap-2">
-                        <Lock className="h-4 w-4" />
-                        Senha
-                      </Label>
+                      <Label htmlFor="password">Senha</Label>
                       <Input
                         id="password"
                         name="password"
@@ -525,10 +503,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="confirm_password" className="flex items-center gap-2">
-                        <Lock className="h-4 w-4" />
-                        Confirmar Senha
-                      </Label>
+                      <Label htmlFor="confirm_password">Confirmar Senha</Label>
                       <Input
                         id="confirm_password"
                         name="confirm_password"
