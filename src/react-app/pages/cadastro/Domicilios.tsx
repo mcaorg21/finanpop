@@ -1,13 +1,28 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/react-app/components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import { Building2, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+
 import { Button } from "@/react-app/components/ui/button";
+import { EmptyState } from "@/react-app/components/ui/empty-state";
 import { Input } from "@/react-app/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/react-app/components/ui/input-group";
 import { Label } from "@/react-app/components/ui/label";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/react-app/components/ui/sheet";
 import { Textarea } from "@/react-app/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/react-app/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
-import { Loader2 } from "lucide-react";
+import { PageHeader } from "@/react-app/components/app/PageHeader";
+import { ResponsiveList, type Column } from "@/react-app/components/app/ResponsiveList";
+import { RowActionsMenu } from "@/react-app/components/app/RowActionsMenu";
+import { useAlert } from "@/react-app/hooks/use-alert";
+import { useReferenceData } from "@/react-app/hooks/use-reference-data";
 import { useToast } from "@/react-app/hooks/use-toast";
+import { formatCEP } from "@/react-app/lib/format";
 
 interface Domicilio {
   id: number;
@@ -22,20 +37,16 @@ interface Domicilio {
   notes: string;
 }
 
+// Mesmos campos do formulário antigo.
 const emptyForm: Omit<Domicilio, "id"> = {
-  name: "",
-  street: "",
-  number: "",
-  complement: "",
-  neighborhood: "",
-  city: "",
-  state: "",
-  zip: "",
-  notes: "",
+  name: "", street: "", number: "", complement: "", neighborhood: "", city: "", state: "", zip: "", notes: "",
 };
 
 export default function DomiciliosPage() {
   const { toast } = useToast();
+  const { confirm } = useAlert();
+  const refreshReference = useReferenceData((s) => s.refresh);
+
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,23 +60,13 @@ export default function DomiciliosPage() {
     try {
       const res = await fetch("/app/api/homes", { credentials: "include" });
       if (res.ok) {
-        const data = await res.json();
-        setDomicilios(data);
+        setDomicilios(await res.json());
       } else {
         const error = await res.json();
-        toast({
-          title: "Erro ao carregar centros de custo",
-          description: error.error || "Tente novamente",
-          variant: "destructive",
-        });
+        toast({ title: "Erro ao carregar centros de custo", description: error.error || "Tente novamente", variant: "destructive" });
       }
-    } catch (error) {
-      console.error("Error fetching homes:", error);
-      toast({
-        title: "Erro de conexão",
-        description: "Não foi possível carregar os centros de custo",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Erro de conexão", description: "Não foi possível carregar os centros de custo", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -73,12 +74,12 @@ export default function DomiciliosPage() {
 
   useEffect(() => {
     fetchDomicilios();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAddressByCep = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, "");
     if (cleanCep.length !== 8) return;
-
     setIsFetchingCep(true);
     try {
       const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
@@ -92,134 +93,83 @@ export default function DomiciliosPage() {
             city: data.localidade || prev.city,
             state: data.uf || prev.state,
           }));
-          toast({
-            title: "Endereço encontrado",
-            description: `${data.logradouro}, ${data.bairro} - ${data.localidade}/${data.uf}`,
-          });
+          toast({ title: "Endereço encontrado", description: `${data.logradouro}, ${data.bairro} - ${data.localidade}/${data.uf}` });
         } else {
-          toast({
-            title: "CEP não encontrado",
-            description: "Verifique o CEP digitado",
-            variant: "destructive",
-          });
+          toast({ title: "CEP não encontrado", description: "Verifique o CEP digitado", variant: "destructive" });
         }
       }
-    } catch (error) {
-      console.error("Error fetching CEP:", error);
-      toast({
-        title: "Erro ao buscar CEP",
-        description: "Não foi possível consultar o CEP",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Erro ao buscar CEP", description: "Não foi possível consultar o CEP", variant: "destructive" });
     } finally {
       setIsFetchingCep(false);
     }
   };
 
-  const formatCep = (value: string) => {
-    const numbers = value.replace(/\D/g, "");
-    if (numbers.length <= 5) return numbers;
-    return `${numbers.slice(0, 5)}-${numbers.slice(5, 8)}`;
-  };
-
-  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCep(e.target.value);
-    setForm({ ...form, zip: formatted });
-    
-    // Auto-fetch when CEP is complete (8 digits)
-    const cleanCep = formatted.replace(/\D/g, "");
-    if (cleanCep.length === 8) {
-      fetchAddressByCep(cleanCep);
-    }
+  const handleCepChange = (value: string) => {
+    const formatted = formatCEP(value);
+    setForm((prev) => ({ ...prev, zip: formatted }));
+    if (formatted.replace(/\D/g, "").length === 8) fetchAddressByCep(formatted);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-
     try {
       const url = editingId ? `/app/api/homes/${editingId}` : "/app/api/homes";
-      const method = editingId ? "PUT" : "POST";
-
       const res = await fetch(url, {
-        method,
+        method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
         credentials: "include",
       });
-
       const data = await res.json();
-
       if (res.ok) {
         setIsOpen(false);
         setForm(emptyForm);
         setEditingId(null);
         fetchDomicilios();
-        toast({
-          title: editingId ? "Centro de Custo atualizado" : "Centro de Custo criado",
-          description: `${form.name} foi salvo com sucesso`,
-        });
+        refreshReference();
+        toast({ title: editingId ? "Centro de custo atualizado" : "Centro de custo criado", description: `${form.name} foi salvo com sucesso` });
       } else {
-        toast({
-          title: "Erro ao salvar",
-          description: data.error || "Verifique os dados e tente novamente",
-          variant: "destructive",
-        });
+        toast({ title: "Erro ao salvar", description: data.error || "Verifique os dados e tente novamente", variant: "destructive" });
       }
-    } catch (error) {
-      console.error("Error saving home:", error);
-      toast({
-        title: "Erro de conexão",
-        description: "Não foi possível salvar o centro de custo",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Erro de conexão", description: "Não foi possível salvar o centro de custo", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleEdit = (domicilio: Domicilio) => {
+  const handleEdit = (d: Domicilio) => {
     setForm({
-      name: domicilio.name || "",
-      street: domicilio.street || "",
-      number: domicilio.number || "",
-      complement: domicilio.complement || "",
-      neighborhood: domicilio.neighborhood || "",
-      city: domicilio.city || "",
-      state: domicilio.state || "",
-      zip: domicilio.zip || "",
-      notes: domicilio.notes || "",
+      name: d.name || "", street: d.street || "", number: d.number || "", complement: d.complement || "",
+      neighborhood: d.neighborhood || "", city: d.city || "", state: d.state || "", zip: d.zip || "", notes: d.notes || "",
     });
-    setEditingId(domicilio.id);
+    setEditingId(d.id);
     setIsOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir este centro de custo?")) return;
-
+  const handleDelete = async (d: Domicilio) => {
+    const ok = await confirm({
+      title: "Excluir centro de custo?",
+      message: `"${d.name}" será removido. Esta ação não pode ser desfeita.`,
+      confirmText: "Excluir",
+      cancelText: "Cancelar",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
-      const res = await fetch(`/app/api/homes/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/app/api/homes/${d.id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         fetchDomicilios();
-        toast({
-          title: "Centro de Custo excluído",
-          description: "O centro de custo foi removido com sucesso",
-        });
+        refreshReference();
+        toast({ title: "Centro de custo excluído" });
       } else {
         const data = await res.json();
-        toast({
-          title: "Erro ao excluir",
-          description: data.error || "Tente novamente",
-          variant: "destructive",
-        });
+        toast({ title: "Erro ao excluir", description: data.error || "Tente novamente", variant: "destructive" });
       }
-    } catch (error) {
-      console.error("Error deleting home:", error);
-      toast({
-        title: "Erro de conexão",
-        description: "Não foi possível excluir o centro de custo",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Erro de conexão", description: "Não foi possível excluir o centro de custo", variant: "destructive" });
     }
   };
 
@@ -229,262 +179,136 @@ export default function DomiciliosPage() {
     setIsOpen(true);
   };
 
-  const filtered = domicilios.filter(
-    (d) =>
-      d.name?.toLowerCase().includes(search.toLowerCase()) ||
-      d.city?.toLowerCase().includes(search.toLowerCase())
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return domicilios;
+    return domicilios.filter((d) => d.name?.toLowerCase().includes(q) || d.city?.toLowerCase().includes(q));
+  }, [domicilios, search]);
+
+  const address = (d: Domicilio) => (d.street ? `${d.street}, ${d.number || "s/n"}${d.complement ? ` - ${d.complement}` : ""}` : "—");
+  const cityState = (d: Domicilio) => (d.city && d.state ? `${d.city}/${d.state}` : d.city || d.state || "—");
+  const actionsFor = (d: Domicilio) => [
+    { label: "Editar", icon: Pencil, onSelect: () => handleEdit(d) },
+    { label: "Excluir", icon: Trash2, destructive: true, separatorBefore: true, onSelect: () => handleDelete(d) },
+  ];
+
+  const columns: Column<Domicilio>[] = [
+    { key: "name", header: "Nome", cell: (d) => <span className="font-medium">{d.name}</span> },
+    { key: "address", header: "Endereço", cell: (d) => <span className="text-muted-foreground">{address(d)}</span> },
+    { key: "city", header: "Cidade/UF", cell: (d) => <span className="text-muted-foreground">{cityState(d)}</span> },
+    { key: "actions", header: "", align: "right", className: "w-12", cell: (d) => <RowActionsMenu actions={actionsFor(d)} /> },
+  ];
+
+  const renderCard = (d: Domicilio) => (
+    <div className="flex items-start gap-3">
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{d.name}</p>
+        {d.street && <p className="truncate text-sm text-muted-foreground">{address(d)}</p>}
+        {(d.city || d.state) && <p className="text-sm text-muted-foreground">{cityState(d)}</p>}
+      </div>
+      <RowActionsMenu actions={actionsFor(d)} className="-mr-2" />
+    </div>
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Centros de Custo</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Cadastre e gerencie os centros de custo
-          </p>
-        </div>
-        <Button onClick={handleOpenNew}>
-          Novo Centro de Custo
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Centros de Custo"
+        description="Locais, projetos ou contas que você acompanha separadamente"
+        actions={
+          <Button onClick={handleOpenNew}>
+            <Plus /> Novo centro de custo
+          </Button>
+        }
+        toolbar={
+          <InputGroup className="w-full sm:w-80">
+            <InputGroupAddon><Search /></InputGroupAddon>
+            <InputGroupInput placeholder="Buscar por nome ou cidade..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            {search && (
+              <InputGroupAddon align="inline-end">
+                <button type="button" aria-label="Limpar busca" onClick={() => setSearch("")}><X className="size-4" /></button>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
+        }
+      />
 
-      {/* Dialog */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Editar Centro de Custo" : "Novo Centro de Custo"}</DialogTitle>
-            <DialogDescription>
-              Preencha os dados do endereço. Digite o CEP para preencher automaticamente.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome do centro de custo *</Label>
-              <Input
-                id="name"
-                placeholder="Ex: Casa BH, Apto RJ"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="zip">CEP</Label>
-                <div className="relative">
-                  <Input
-                    id="zip"
-                    placeholder="00000-000"
-                    value={form.zip}
-                    onChange={handleCepChange}
-                    maxLength={9}
-                  />
-                  {isFetchingCep && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Digite o CEP para preencher o endereço automaticamente
-                </p>
-              </div>
-              <div className="space-y-2 sm:col-span-1">
-                <Label htmlFor="state">UF</Label>
-                <Input
-                  id="state"
-                  placeholder="MG"
-                  maxLength={2}
-                  value={form.state}
-                  onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })}
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="street">Logradouro</Label>
-                <Input
-                  id="street"
-                  placeholder="Rua, Avenida..."
-                  value={form.street}
-                  onChange={(e) => setForm({ ...form, street: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="number">Número</Label>
-                <Input
-                  id="number"
-                  placeholder="123"
-                  value={form.number}
-                  onChange={(e) => setForm({ ...form, number: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="complement">Complemento</Label>
-                <Input
-                  id="complement"
-                  placeholder="Apto, Casa..."
-                  value={form.complement}
-                  onChange={(e) => setForm({ ...form, complement: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="neighborhood">Bairro</Label>
-                <Input
-                  id="neighborhood"
-                  placeholder="Nome do bairro"
-                  value={form.neighborhood}
-                  onChange={(e) => setForm({ ...form, neighborhood: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="city">Cidade</Label>
-                <Input
-                  id="city"
-                  placeholder="Nome da cidade"
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Observações</Label>
-              <Textarea
-                id="notes"
-                placeholder="Anotações sobre o centro de custo"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Salvar
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Search */}
-      <div className="max-w-md">
-        <Input
-          placeholder="Buscar por nome ou cidade..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
+      <ResponsiveList
+        rows={filtered}
+        columns={columns}
+        rowKey={(d) => d.id}
+        renderCard={renderCard}
+        breakpoint="md"
+        isLoading={isLoading}
+        onRowClick={handleEdit}
+        emptyState={
+          domicilios.length === 0 ? (
+            <EmptyState icon={Building2} title="Nenhum centro de custo" description="Cadastre o primeiro para começar a lançar receitas e despesas." action={<Button size="sm" onClick={handleOpenNew}><Plus /> Novo centro de custo</Button>} />
           ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Endereço</TableHead>
-                      <TableHead>Cidade/UF</TableHead>
-                      <TableHead className="w-[140px]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                          {domicilios.length === 0
-                            ? "Nenhum centro de custo cadastrado. Clique em 'Novo Centro de Custo' para começar."
-                            : "Nenhum centro de custo encontrado com os filtros atuais."}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filtered.map((d) => (
-                        <TableRow key={d.id}>
-                          <TableCell className="font-medium">{d.name}</TableCell>
-                          <TableCell>
-                            {d.street ? `${d.street}, ${d.number || "s/n"}` : "-"}
-                            {d.complement && ` - ${d.complement}`}
-                          </TableCell>
-                          <TableCell>
-                            {d.city && d.state ? `${d.city}/${d.state}` : d.city || d.state || "-"}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-0.5">
-                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(d)}>
-                                Editar
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-2 text-xs text-destructive hover:text-destructive"
-                                onClick={() => handleDelete(d.id)}
-                              >
-                                Excluir
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+            <EmptyState icon={Search} title="Nenhum resultado" description="Nenhum centro de custo corresponde à busca." />
+          )
+        }
+      />
 
-              {/* Mobile Cards */}
-              <div className="md:hidden divide-y">
-                {filtered.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground px-4">
-                    {domicilios.length === 0
-                      ? "Nenhum centro de custo cadastrado. Clique em 'Novo Centro de Custo' para começar."
-                      : "Nenhum centro de custo encontrado."}
-                  </div>
-                ) : (
-                  filtered.map((d) => (
-                    <div key={d.id} className="p-4 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-semibold">{d.name}</p>
-                          {d.street && (
-                            <p className="text-sm text-muted-foreground">
-                              {d.street}, {d.number || "s/n"}
-                            </p>
-                          )}
-                          {(d.city || d.state) && (
-                            <p className="text-sm text-muted-foreground">
-                              {d.city && d.state ? `${d.city}/${d.state}` : d.city || d.state}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex gap-0.5">
-                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(d)}>
-                            Editar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-xs text-destructive"
-                            onClick={() => handleDelete(d.id)}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetContent size="md" mobileSide="full">
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <SheetHeader>
+              <SheetTitle>{editingId ? "Editar centro de custo" : "Novo centro de custo"}</SheetTitle>
+              <SheetDescription>Digite o CEP para preencher o endereço automaticamente.</SheetDescription>
+            </SheetHeader>
+            <SheetBody className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="name">Nome do centro de custo *</Label>
+                <Input id="name" placeholder="Ex: Casa BH, Apto RJ" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus />
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="zip">CEP</Label>
+                  <div className="relative">
+                    <Input id="zip" placeholder="00000-000" inputMode="numeric" value={form.zip} onChange={(e) => handleCepChange(e.target.value)} maxLength={9} />
+                    {isFetchingCep && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="state">UF</Label>
+                  <Input id="state" placeholder="MG" maxLength={2} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} />
+                </div>
+                <div className="col-span-2 space-y-1.5">
+                  <Label htmlFor="street">Logradouro</Label>
+                  <Input id="street" placeholder="Rua, Avenida..." value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="number">Número</Label>
+                  <Input id="number" placeholder="123" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="complement">Complemento</Label>
+                  <Input id="complement" placeholder="Apto, Casa..." value={form.complement} onChange={(e) => setForm({ ...form, complement: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="neighborhood">Bairro</Label>
+                  <Input id="neighborhood" placeholder="Nome do bairro" value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="city">Cidade</Label>
+                  <Input id="city" placeholder="Nome da cidade" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="notes">Observações</Label>
+                <Textarea id="notes" placeholder="Anotações sobre o centro de custo" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              </div>
+            </SheetBody>
+            <SheetFooter>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving && <Loader2 className="animate-spin" />} Salvar
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

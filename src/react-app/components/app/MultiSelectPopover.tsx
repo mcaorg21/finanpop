@@ -55,7 +55,7 @@ export function MultiSelectPopover({
   }
 
   return (
-    <Popover>
+    <Popover modal>
       <PopoverTrigger asChild>
         <Button
           type="button"

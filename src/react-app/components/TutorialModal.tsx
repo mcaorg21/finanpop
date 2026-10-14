@@ -78,7 +78,7 @@ export default function TutorialModal() {
             </div>
             <div className="flex-1">
               <p className="text-sm">
-                Comece a fazer <span className="font-semibold">Registros</span> de receitas e despesas
+                Comece a fazer <span className="font-semibold">Lançamentos</span> de receitas e despesas pelo botão “+”
               </p>
             </div>
           </div>

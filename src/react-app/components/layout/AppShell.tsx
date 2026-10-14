@@ -1,30 +1,13 @@
 import { useEffect } from "react";
-import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 import { Loader2 } from "lucide-react";
 
 import TutorialModal from "@/react-app/components/TutorialModal";
-import PendingAlert from "@/react-app/components/PendingAlert";
+import TransactionSheet from "@/react-app/components/transactions/TransactionSheet";
 import { useSession, selectIsExpired } from "@/react-app/hooks/use-session";
-import { useTransactionSheet } from "@/react-app/hooks/use-transaction-sheet";
 import Sidebar from "./Sidebar";
 import MobileHeader from "./MobileHeader";
 import MobileTabBar from "./MobileTabBar";
-
-// Ponte temporária até o TransactionSheet existir: "+ Novo lançamento" leva à tela de
-// lançamentos com ?new=1, que abre o formulário atual.
-function TransactionSheetBridge() {
-  const open = useTransactionSheet((s) => s.open);
-  const close = useTransactionSheet((s) => s.close);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!open) return;
-    close();
-    navigate("/registro?new=1");
-  }, [open, close, navigate]);
-
-  return null;
-}
 
 export default function AppShell() {
   const location = useLocation();
@@ -71,9 +54,8 @@ export default function AppShell() {
         </div>
       </main>
       <MobileTabBar />
-      <TransactionSheetBridge />
+      <TransactionSheet />
       <TutorialModal />
-      <PendingAlert />
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent } from "@/react-app/components/ui/card";
 import { Button } from "@/react-app/components/ui/button";
 import { Input } from "@/react-app/components/ui/input";
 import { Label } from "@/react-app/components/ui/label";
@@ -7,11 +6,23 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
 import { Badge } from "@/react-app/components/ui/badge";
-import { Loader2, X } from "lucide-react";
+import { EmptyState } from "@/react-app/components/ui/empty-state";
+import { CalendarDays, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { MonthNavigator } from "@/react-app/components/app/MonthNavigator";
+import { PageHeader } from "@/react-app/components/app/PageHeader";
+import { ResponsiveList, type Column } from "@/react-app/components/app/ResponsiveList";
+import { RowActionsMenu } from "@/react-app/components/app/RowActionsMenu";
 import { useToast } from "@/react-app/hooks/use-toast";
 import { useAlert } from "@/react-app/hooks/use-alert";
+import { currentMonth } from "@/react-app/lib/format";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+
+const ALL = "ALL";
+const YEAR_OPTIONS = (() => {
+  const y = new Date().getFullYear();
+  return [y - 3, y - 2, y - 1, y, y + 1];
+})();
 
 interface Employee {
   id: number;
@@ -162,10 +173,11 @@ export default function FolhaPontoPage() {
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   
-  // Filters
+  // Filters (mês navegável; funcionário "" = todos — nunca manda "all" para a API)
   const currentDate = new Date();
-  const [filterMonth, setFilterMonth] = useState(currentDate.getMonth() + 1);
-  const [filterYear, setFilterYear] = useState(currentDate.getFullYear());
+  const [filterYm, setFilterYm] = useState(currentMonth());
+  const filterYear = parseInt(filterYm.slice(0, 4));
+  const filterMonth = parseInt(filterYm.slice(5, 7));
   const [filterEmployee, setFilterEmployee] = useState("");
   
   // Dialog states
@@ -186,7 +198,7 @@ export default function FolhaPontoPage() {
       const res = await fetch("/app/api/employees", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        setEmployees(data.filter((e: Employee) => e.is_active !== 0));
+        setEmployees(data.filter((e: Employee) => !!e.is_active));
       }
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -218,7 +230,8 @@ export default function FolhaPontoPage() {
 
   useEffect(() => {
     fetchTimesheets();
-  }, [filterMonth, filterYear, filterEmployee]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterYm, filterEmployee]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -690,75 +703,76 @@ export default function FolhaPontoPage() {
   const totalExpected = sumTimes(entries.map(e => e.hours_expected));
   const totalOvertime = sumTimes(entries.map(e => e.overtime));
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  const periodLabel = (t: Timesheet) => `${MONTHS.find((m) => m.value === t.month)?.label} / ${t.year}`;
+  const statusBadge = (t: Timesheet) => (
+    <Badge variant={t.status === "CLOSED" ? "secondary" : "success"}>{t.status === "CLOSED" ? "Fechada" : "Aberta"}</Badge>
+  );
+  const overtimeClass = (t: Timesheet) => (t.total_overtime?.startsWith("-") ? "text-danger" : "text-success");
+  const actionsFor = (t: Timesheet) => [
+    { label: "Abrir / editar", icon: Pencil, onSelect: () => handleOpenDetail(t) },
+    { label: "Excluir", icon: Trash2, destructive: true, separatorBefore: true, onSelect: () => handleDelete(t.id) },
+  ];
+  const listColumns: Column<Timesheet>[] = [
+    {
+      key: "employee",
+      header: "Funcionário",
+      cell: (t) => (
         <div>
-          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Folha de Ponto</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Controle de ponto dos funcionários
-          </p>
+          <p className="font-medium">{t.employee_name}</p>
+          {t.employee_role && <p className="text-xs text-muted-foreground">{t.employee_role}</p>}
         </div>
-        <Button onClick={() => setIsNewOpen(true)}>
-          <span className="hidden sm:inline">Nova Folha</span>
-          <span className="sm:hidden">Novo</span>
-        </Button>
+      ),
+    },
+    { key: "period", header: "Período", cell: (t) => <span className="text-muted-foreground">{periodLabel(t)}</span> },
+    { key: "worked", header: "Horas trabalhadas", cell: (t) => <span className="font-mono text-xs">{t.total_worked || "—"}</span> },
+    { key: "overtime", header: "Horas extras", cell: (t) => <span className={`font-mono text-xs ${overtimeClass(t)}`}>{t.total_overtime || "—"}</span> },
+    { key: "status", header: "Status", cell: statusBadge },
+    { key: "actions", header: "", align: "right", className: "w-12", cell: (t) => <RowActionsMenu actions={actionsFor(t)} /> },
+  ];
+  const renderListCard = (t: Timesheet) => (
+    <div className="flex items-start gap-3">
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="flex items-center gap-2">
+          <p className="truncate font-medium">{t.employee_name}</p>
+          {statusBadge(t)}
+        </div>
+        <p className="text-sm text-muted-foreground">{periodLabel(t)}</p>
+        <p className="font-mono text-xs text-muted-foreground">
+          {t.total_worked || "—"}
+          {t.total_overtime && <span className={`ml-2 ${overtimeClass(t)}`}>{t.total_overtime}</span>}
+        </p>
       </div>
+      <RowActionsMenu actions={actionsFor(t)} className="-mr-2" />
+    </div>
+  );
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Mês</Label>
-              <Select value={filterMonth.toString()} onValueChange={(v) => setFilterMonth(parseInt(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((m) => (
-                    <SelectItem key={m.value} value={m.value.toString()}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Ano</Label>
-              <Select value={filterYear.toString()} onValueChange={(v) => setFilterYear(parseInt(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[2023, 2024, 2025, 2026].map((y) => (
-                    <SelectItem key={y} value={y.toString()}>
-                      {y}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Funcionário</Label>
-              <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {employees.map((e) => (
-                    <SelectItem key={e.id} value={e.id.toString()}>
-                      {e.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Folha de Ponto"
+        description="Controle de ponto dos funcionários"
+        actions={
+          <Button onClick={() => setIsNewOpen(true)}>
+            <Plus /> Nova folha
+          </Button>
+        }
+        toolbar={
+          <>
+            <MonthNavigator value={filterYm} onChange={setFilterYm} />
+            <Select value={filterEmployee || ALL} onValueChange={(v) => setFilterEmployee(v === ALL ? "" : v)}>
+              <SelectTrigger className="w-full sm:w-56" aria-label="Funcionário">
+                <SelectValue placeholder="Todos os funcionários" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todos os funcionários</SelectItem>
+                {employees.map((e) => (
+                  <SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        }
+      />
 
       {/* New Timesheet Dialog */}
       <Dialog open={isNewOpen} onOpenChange={setIsNewOpen}>
@@ -817,7 +831,7 @@ export default function FolhaPontoPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[2023, 2024, 2025, 2026].map((y) => (
+                    {YEAR_OPTIONS.map((y) => (
                       <SelectItem key={y} value={y.toString()}>
                         {y}
                       </SelectItem>
@@ -840,111 +854,23 @@ export default function FolhaPontoPage() {
       </Dialog>
 
       {/* List */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : timesheets.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Nenhuma folha de ponto encontrada
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Funcionário</TableHead>
-                      <TableHead>Período</TableHead>
-                      <TableHead>Horas Trabalhadas</TableHead>
-                      <TableHead>Horas Extras</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-[100px]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {timesheets.map((t) => (
-                      <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleOpenDetail(t)}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{t.employee_name}</p>
-                            <p className="text-xs text-muted-foreground">{t.employee_role}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {MONTHS.find(m => m.value === t.month)?.label} / {t.year}
-                        </TableCell>
-                        <TableCell className="font-mono">{t.total_worked || "-"}</TableCell>
-                        <TableCell className={`font-mono ${t.total_overtime?.startsWith("-") ? "text-danger" : "text-success"}`}>
-                          {t.total_overtime || "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={t.status === "CLOSED" ? "secondary" : "success"}>
-                            {t.status === "CLOSED" ? "Fechada" : "Aberta"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleOpenDetail(t)}>
-                              Editar
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 px-2 text-xs text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(t.id)}
-                            >
-                              Excluir
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="md:hidden divide-y">
-                {timesheets.map((t) => (
-                  <div key={t.id} className="p-4 space-y-2" onClick={() => handleOpenDetail(t)}>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold">{t.employee_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {MONTHS.find(m => m.value === t.month)?.label} / {t.year}
-                        </p>
-                        <div className="flex gap-2 mt-1">
-                          <span className="text-xs font-mono">{t.total_worked || "-"}</span>
-                          <Badge variant={t.status === "CLOSED" ? "secondary" : "default"} className="text-xs">
-                            {t.status === "CLOSED" ? "Fechada" : "Aberta"}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleOpenDetail(t)}>
-                          Editar
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-xs text-destructive"
-                          onClick={() => handleDelete(t.id)}
-                        >
-                          Excluir
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <ResponsiveList
+        rows={timesheets}
+        columns={listColumns}
+        rowKey={(t) => t.id}
+        renderCard={renderListCard}
+        breakpoint="md"
+        isLoading={isLoading}
+        onRowClick={handleOpenDetail}
+        emptyState={
+          <EmptyState
+            icon={CalendarDays}
+            title="Nenhuma folha de ponto neste mês"
+            description={filterEmployee ? "Nenhuma folha para este funcionário no mês." : "Crie a folha do mês para começar a registrar as horas."}
+            action={<Button size="sm" onClick={() => setIsNewOpen(true)}><Plus /> Nova folha</Button>}
+          />
+        }
+      />
 
       {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>

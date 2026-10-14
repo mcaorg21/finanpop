@@ -13,6 +13,16 @@ import {
 } from "@/react-app/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/react-app/components/ui/popover"
 
+const normalize = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+
+// Busca por substring (sem acentos) em vez do fuzzy padrão do cmdk, que casa
+// "esporte" com "TRANSPORTE".
+const substringFilter = (value: string, search: string, keywords?: string[]) => {
+  const haystack = normalize([value, ...(keywords ?? [])].join(" "))
+  return haystack.includes(normalize(search)) ? 1 : 0
+}
+
 export interface ComboboxOption {
   value: string
   label: string
@@ -61,8 +71,9 @@ export function Combobox({
     return Array.from(map.entries())
   }, [options])
 
+  // modal: dentro de um Sheet/Dialog o foco preso fecharia o popover antes do clique
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -95,7 +106,7 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0" align="start">
-        <Command>
+        <Command filter={substringFilter}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
@@ -107,6 +118,9 @@ export function Combobox({
                     value={o.label}
                     keywords={o.keywords}
                     disabled={o.disabled}
+                    // mantém o foco no input de busca; sem isso, dentro de um Sheet o
+                    // pointerdown move o foco e o popover fecha antes do clique
+                    onMouseDown={(e) => e.preventDefault()}
                     onSelect={() => {
                       onValueChange(o.value)
                       setOpen(false)

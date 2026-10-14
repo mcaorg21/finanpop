@@ -1,258 +1,186 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/react-app/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/react-app/components/ui/accordion";
+import { PageHeader } from "@/react-app/components/app/PageHeader";
 
 export default function AjudaPage() {
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Central de Ajuda</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Guia completo de todas as funcionalidades do sistema
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader title="Central de Ajuda" description="Guia das funcionalidades do sistema" />
 
-      {/* Sections */}
-      <Accordion type="single" collapsible className="space-y-4">
-        {/* Dashboard */}
-        <AccordionItem value="dashboard" className="border rounded-lg px-4">
+      <Accordion type="single" collapsible className="space-y-3">
+        {/* Navegação */}
+        <AccordionItem value="navegacao" className="rounded-lg border border-border px-4">
           <AccordionTrigger className="hover:no-underline">
-            <span className="font-semibold">Início (Dashboard)</span>
+            <span className="font-semibold">Navegação e atalhos</span>
           </AccordionTrigger>
-          <AccordionContent className="space-y-3 text-sm pt-4">
-            <p>
-              O <strong>Dashboard</strong> é a tela inicial do sistema onde você tem uma visão geral de suas finanças e cadastros.
-            </p>
+          <AccordionContent className="space-y-3 pt-4 text-sm">
+            <ul className="list-disc space-y-1 pl-5">
+              <li><strong>No computador:</strong> o menu lateral à esquerda dá acesso a Início, Lançamentos, Relatórios, Cadastros, Folha de Ponto, Configurações e Ajuda.</li>
+              <li><strong>No celular:</strong> a barra inferior tem Início, Lançamentos, o botão <strong>+</strong> no centro, Relatórios e <strong>Mais</strong> (cadastros, folha de ponto, configurações e sair).</li>
+              <li><strong>Botão “+ Novo lançamento”:</strong> abre o painel de registro de qualquer tela, sem sair de onde você está.</li>
+              <li><strong>Navegação por mês:</strong> Início e Lançamentos mostram um mês por vez — use as setas ◀ ▶ para trocar e “Hoje” para voltar ao mês atual.</li>
+              <li><strong>Período de teste:</strong> os dias restantes aparecem ao lado do seu nome no menu (ou no topo, no celular).</li>
+            </ul>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Início */}
+        <AccordionItem value="dashboard" className="rounded-lg border border-border px-4">
+          <AccordionTrigger className="hover:no-underline">
+            <span className="font-semibold">Início</span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3 pt-4 text-sm">
+            <p>Resumo do mês selecionado, com acesso rápido ao que precisa de atenção.</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li><strong>Receitas, Despesas e Saldo:</strong> totais do mês (sem lançamentos cancelados). Clique num cartão para abrir a lista filtrada.</li>
+              <li><strong>A pagar:</strong> despesas pendentes com vencimento no mês e quantas já estão atrasadas.</li>
+              <li><strong>Últimos 6 meses:</strong> gráfico de receitas e despesas, separando o que já foi pago do que está pendente.</li>
+              <li><strong>Pendentes do mês:</strong> lista por vencimento, com o botão ✓ para marcar como pago em um clique.</li>
+              <li><strong>Últimos lançamentos:</strong> os 5 registros mais recentes — clique para editar.</li>
+            </ul>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Lançamentos */}
+        <AccordionItem value="lancamentos" className="rounded-lg border border-border px-4">
+          <AccordionTrigger className="hover:no-underline">
+            <span className="font-semibold">Lançamentos (receitas e despesas)</span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-4 text-sm">
             <div className="space-y-2">
-              <p className="font-medium">O que você encontra aqui:</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Total de Receitas:</strong> Soma de todas as receitas do mês atual</li>
-                <li><strong>Total de Despesas:</strong> Soma de todas as despesas do mês atual</li>
-                <li><strong>Saldo:</strong> Diferença entre receitas e despesas (aparece em verde se positivo, vermelho se negativo)</li>
-                <li><strong>Cadastros:</strong> Contador de quantos centros de custo, funcionários, categorias e lançamentos você tem</li>
-                <li><strong>Guia de Primeiros Passos:</strong> Instruções para configurar o sistema pela primeira vez</li>
+              <p className="font-medium">Registrar rapidamente</p>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>Abra com <strong>+ Novo lançamento</strong>. O cursor já começa no <strong>Valor</strong>; digite só os números (1234 vira 12,34).</li>
+                <li>Escolha <strong>Despesa</strong> ou <strong>Receita</strong>, a <strong>Categoria</strong> (digite para buscar), o <strong>Centro de custo</strong> (o último usado fica lembrado) e a <strong>Forma de pagamento</strong>.</li>
+                <li><strong>Enter</strong> salva. <strong>Ctrl+Enter</strong> (ou “Salvar e novo”) salva e já abre outro mantendo tipo, centro, data e forma.</li>
+                <li>Em <strong>Mais detalhes</strong> ficam vencimento, data de pagamento, funcionário, empresa, descrição, observações, repetição e anexos (arquivo ou câmera).</li>
+                <li><strong>Cartão de crédito:</strong> informe o número de parcelas — o sistema cria uma por mês, com o total dividido sem perder centavos (ex.: “3/12”).</li>
+                <li><strong>Repetir nos próximos meses:</strong> gera cópias pendentes para os meses seguintes (aluguel, mensalidades).</li>
+                <li>Preencher a <strong>data de pagamento</strong> muda o status para Pago automaticamente.</li>
               </ul>
             </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Cadastros */}
-        <AccordionItem value="cadastros" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <span className="font-semibold">Cadastros</span>
-          </AccordionTrigger>
-          <AccordionContent className="space-y-4 pt-4">
-            <p className="text-sm text-muted-foreground">
-              Área para gerenciar todas as informações básicas do sistema
-            </p>
-            {/* Centro de Custo */}
-            <div className="space-y-2 border-l-2 border-border pl-4">
-              <h3 className="font-semibold">Centro de Custo</h3>
-              <p className="text-sm text-muted-foreground">
-                Cadastre os locais, projetos ou unidades que você deseja controlar financeiramente.
-                Por exemplo: diferentes propriedades, filiais, obras, ou projetos específicos.
-              </p>
-              <p className="text-sm">
-                <strong>Como usar:</strong> Cada lançamento financeiro deve estar vinculado a um centro de custo,
-                permitindo que você acompanhe as finanças separadamente por local/projeto.
-              </p>
-            </div>
-
-            {/* Funcionários */}
-            <div className="space-y-2 border-l-2 border-border pl-4">
-              <h3 className="font-semibold">Funcionários</h3>
-              <p className="text-sm text-muted-foreground">
-                Cadastre todos os funcionários que trabalham em seus centros de custo. Registre informações como
-                CPF, CTPS, data de admissão, carga horária e escala de trabalho.
-              </p>
-              <p className="text-sm">
-                <strong>Campos importantes:</strong>
-              </p>
-              <ul className="text-sm list-disc pl-5 space-y-1">
-                <li><strong>Horas por Dia:</strong> Define a jornada padrão (ex: 8:48 para 44h semanais)</li>
-                <li><strong>Trabalha aos Sábados:</strong> Define se o funcionário tem expediente no sábado</li>
-                <li><strong>Descanso Semanal:</strong> Dia da semana em que o funcionário folga</li>
+            <div className="space-y-2">
+              <p className="font-medium">Lista, filtros e ações</p>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>A lista mostra um mês por vez, 25 por página. Em <strong>Filtros</strong> você escolhe se o mês vale pela data de cadastro, vencimento ou pagamento, além de tipo, status, forma, categorias e centros.</li>
+                <li>A <strong>busca</strong> encontra por descrição, categoria, empresa, funcionário ou centro.</li>
+                <li>Os cartões no topo resumem o mês; <strong>Pendente</strong> mostra os atrasados e filtra ao clicar.</li>
+                <li>No menu <strong>⋯</strong> de cada linha: Editar, Duplicar, Marcar como pago, Anexos e Excluir — igual no celular.</li>
+                <li><strong>Exportar</strong> gera Excel ou CSV com exatamente o filtro ativo.</li>
               </ul>
-              <p className="text-sm mt-2">
-                Essas informações são usadas automaticamente na <strong>Folha de Ponto</strong>.
-              </p>
-            </div>
-
-            {/* Fornecedores */}
-            <div className="space-y-2 border-l-2 border-border pl-4">
-              <h3 className="font-semibold">Fornecedores</h3>
-              <p className="text-sm text-muted-foreground">
-                Cadastre empresas e prestadores de serviço com quem você faz negócios.
-                Registre CNPJ, telefone, email e observações importantes.
-              </p>
-              <p className="text-sm">
-                <strong>Como usar:</strong> Ao lançar uma despesa, você pode vincular a empresa fornecedora
-                para ter melhor rastreabilidade dos seus gastos por fornecedor.
-              </p>
-            </div>
-
-            {/* Categorias */}
-            <div className="space-y-2 border-l-2 border-border pl-4">
-              <h3 className="font-semibold">Categorias</h3>
-              <p className="text-sm text-muted-foreground">
-                Organize suas receitas e despesas em categorias. O sistema já vem com categorias pré-cadastradas,
-                mas você pode adicionar, editar ou excluir conforme sua necessidade.
-              </p>
-              <p className="text-sm">
-                <strong>Subcategorias:</strong> Você pode criar categorias "filhas" dentro de uma categoria principal.
-                Por exemplo, a categoria "Impostos" pode ter subcategorias como "IPVA", "IPTU" e "LICENCIAMENTO".
-              </p>
-              <p className="text-sm mt-2">
-                <strong>Tipos:</strong> Cada categoria é classificada como RECEITA ou DESPESA, facilitando
-                a organização e os relatórios.
-              </p>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Registros */}
-        <AccordionItem value="registros" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <span className="font-semibold">Registros</span>
-          </AccordionTrigger>
-          <AccordionContent className="space-y-4 pt-4">
-            <p className="text-sm text-muted-foreground">
-              Área para registrar movimentações financeiras e controle de ponto
-            </p>
-            {/* Receitas e Despesas */}
-            <div className="space-y-2 border-l-2 border-border pl-4">
-              <h3 className="font-semibold">Receitas e Despesas</h3>
-              <p className="text-sm text-muted-foreground">
-                Registre todos os lançamentos financeiros: pagamentos, recebimentos, contas a pagar e a receber.
-              </p>
-              <p className="text-sm">
-                <strong>Campos principais:</strong>
-              </p>
-              <ul className="text-sm list-disc pl-5 space-y-1">
-                <li><strong>Data:</strong> Data do lançamento no sistema</li>
-                <li><strong>Vencimento:</strong> Data em que a conta vence</li>
-                <li><strong>Pagamento:</strong> Data efetiva do pagamento (quando preenchida, o status automaticamente muda para "PAGO")</li>
-                <li><strong>Tipo:</strong> RECEITA ou DESPESA</li>
-                <li><strong>Categoria:</strong> Classificação do lançamento</li>
-                <li><strong>Centro de Custo:</strong> Onde essa movimentação está alocada</li>
-                <li><strong>Forma de Pagamento:</strong> PIX, Dinheiro, Cartão, Boleto, etc.</li>
-                <li><strong>Status:</strong> PAGO, PENDENTE ou CANCELADO</li>
-              </ul>
-              <p className="text-sm mt-2">
-                <strong>Filtros:</strong> Use os filtros para encontrar lançamentos por período, tipo, categoria,
-                status e forma de pagamento. Você também pode exportar os dados filtrados para Excel ou CSV.
-              </p>
-            </div>
-
-            {/* Folha de Ponto */}
-            <div className="space-y-2 border-l-2 border-border pl-4">
-              <h3 className="font-semibold">Folha de Ponto</h3>
-              <p className="text-sm text-muted-foreground">
-                Controle o ponto eletrônico dos funcionários com registro de entrada, saída, horas trabalhadas e horas extras.
-              </p>
-              <p className="text-sm">
-                <strong>Como usar:</strong>
-              </p>
-              <ul className="text-sm list-disc pl-5 space-y-1">
-                <li>Selecione o funcionário, mês e ano</li>
-                <li>A folha mostra todos os dias do mês em uma grade</li>
-                <li>Clique em "Editar" para abrir o modal de lançamento de horas</li>
-                <li>Registre até 4 marcações por dia: Entrada 1, Saída 1, Entrada 2, Saída 2</li>
-                <li>O sistema calcula automaticamente as horas trabalhadas e horas extras</li>
-                <li>Use o campo "Observação" para marcar férias, feriados, atestados, folgas, etc.</li>
-              </ul>
-              <p className="text-sm mt-2">
-                <strong>Dicas:</strong> Você pode colar múltiplas linhas de horários (ex: copiado do WhatsApp).
-                Use os botões "Limpar Linha" ou "Limpar Tudo" para apagar registros rapidamente.
-                A folha pode ser exportada em PDF para impressão e assinatura.
-              </p>
             </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Relatórios */}
-        <AccordionItem value="relatorios" className="border rounded-lg px-4">
+        <AccordionItem value="relatorios" className="rounded-lg border border-border px-4">
           <AccordionTrigger className="hover:no-underline">
             <span className="font-semibold">Relatórios</span>
           </AccordionTrigger>
-          <AccordionContent className="space-y-3 text-sm pt-4">
-            <p>
-              A tela de <strong>Relatórios</strong> permite visualizar e analisar suas movimentações financeiras
-              de forma consolidada.
-            </p>
-            <div className="space-y-2">
-              <p className="font-medium">Funcionalidades:</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Filtros Avançados:</strong> Filtre por período, tipo, categoria, centro de custo,
-                  funcionário, empresa, status e forma de pagamento</li>
-                <li><strong>Resumo Financeiro:</strong> Visualize totais de receitas, despesas e saldo do período filtrado</li>
-                <li><strong>Tabela Detalhada:</strong> Lista completa de todos os lançamentos que atendem aos filtros</li>
-                <li><strong>Exportação:</strong> Exporte os dados para Excel, CSV ou PDF para análises externas</li>
-                <li><strong>Gráficos:</strong> Visualização gráfica da distribuição de receitas e despesas por categoria</li>
-              </ul>
+          <AccordionContent className="space-y-3 pt-4 text-sm">
+            <ul className="list-disc space-y-1 pl-5">
+              <li><strong>Período:</strong> atalhos Este mês, Mês passado, 3 meses, Este ano ou datas personalizadas. Escolha se o período vale pela data de cadastro, vencimento ou pagamento.</li>
+              <li><strong>Filtros aplicam sozinhos</strong> ao mudar — não há botão “Aplicar”. Centros, categorias, funcionário, empresa, tipo e status.</li>
+              <li><strong>Resumo:</strong> receitas (e a receber), despesas (e a pagar), saldo (e o realizado, só com o que foi pago) e atrasados.</li>
+              <li><strong>Evolução mensal:</strong> barras por mês separando pago e pendente.</li>
+              <li><strong>Por categoria:</strong> donut com abas Despesas/Receitas; clique numa categoria para filtrar a lista de lançamentos. “Agrupar por categoria pai” soma as subcategorias.</li>
+              <li><strong>Por forma de pagamento:</strong> participação de Pix, cartão, boleto etc.</li>
+              <li><strong>Exportar:</strong> Excel e CSV com o mesmo filtro; o <strong>PDF</strong> traz os filtros, o resumo, os gráficos e a tabela de lançamentos.</li>
+            </ul>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Cadastros */}
+        <AccordionItem value="cadastros" className="rounded-lg border border-border px-4">
+          <AccordionTrigger className="hover:no-underline">
+            <span className="font-semibold">Cadastros</span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-4">
+            <p className="text-sm text-muted-foreground">Informações básicas usadas nos lançamentos. Em todas as telas: busca no topo, clique na linha para editar e menu ⋯ para as demais ações.</p>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Centros de Custo</h3>
+              <p className="text-sm text-muted-foreground">
+                Locais, projetos ou contas que você acompanha separadamente (casa, filial, obra, conta pessoal). Todo lançamento pertence a um centro de custo. Digite o CEP para preencher o endereço.
+              </p>
             </div>
-            <p className="text-sm border-l-2 border-border pl-3 text-muted-foreground">
-              <strong className="text-foreground">Dica:</strong> Use a tela de Relatórios para fazer análises mensais, trimestrais ou anuais.
-              Combine filtros para descobrir padrões de gastos e oportunidades de economia.
-            </p>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Categorias</h3>
+              <p className="text-sm text-muted-foreground">
+                Classificam receitas e despesas. Use <strong>Sugestões</strong> para adicionar uma categoria completa com subcategorias em um clique, ou crie as suas. Clique na seta para ver as subcategorias de cada uma.
+              </p>
+            </div>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Fornecedores</h3>
+              <p className="text-sm text-muted-foreground">
+                Empresas e prestadores com CNPJ, telefone e e-mail. Vincule ao lançamento para acompanhar gastos por fornecedor (dá para criar um novo direto do painel de lançamento).
+              </p>
+            </div>
+            <div className="space-y-2 border-l-2 border-border pl-4">
+              <h3 className="font-semibold">Funcionários</h3>
+              <p className="text-sm text-muted-foreground">
+                Dados pessoais, CTPS, admissão, horas por dia e horário de trabalho por dia da semana — usados na Folha de Ponto. O menu ⋯ dá acesso às <strong>chaves PIX</strong>.
+              </p>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Folha de Ponto */}
+        <AccordionItem value="folha" className="rounded-lg border border-border px-4">
+          <AccordionTrigger className="hover:no-underline">
+            <span className="font-semibold">Folha de Ponto</span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3 pt-4 text-sm">
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Navegue pelos meses com as setas e filtre por funcionário. <strong>Nova folha</strong> cria a folha do mês para um funcionário.</li>
+              <li>Clique na folha para abrir a grade com todos os dias do mês e registre até 4 marcações por dia (Entrada 1, Saída 1, Entrada 2, Saída 2).</li>
+              <li>Horas trabalhadas e extras são calculadas automaticamente a partir das horas por dia do funcionário.</li>
+              <li>Use <strong>Observação</strong> para férias, feriados, atestados e folgas. Você pode colar vários horários de uma vez (ex.: copiados do WhatsApp).</li>
+              <li>Exporte em PDF para impressão e assinatura.</li>
+            </ul>
           </AccordionContent>
         </AccordionItem>
 
         {/* Configurações */}
-        <AccordionItem value="configuracoes" className="border rounded-lg px-4">
+        <AccordionItem value="configuracoes" className="rounded-lg border border-border px-4">
           <AccordionTrigger className="hover:no-underline">
             <span className="font-semibold">Configurações</span>
           </AccordionTrigger>
-          <AccordionContent className="space-y-3 text-sm pt-4">
-            <p>
-              A área de <strong>Configurações</strong> é onde você gerencia os usuários que têm acesso ao sistema.
-            </p>
-            <div className="space-y-2">
-              <p className="font-medium">Gerenciamento de Usuários:</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Adicionar Usuário:</strong> Crie novos usuários definindo nome, login e senha</li>
-                <li><strong>Editar Usuário:</strong> Modifique informações ou altere senhas de usuários existentes</li>
-                <li><strong>Desativar/Ativar:</strong> Controle quem pode acessar o sistema sem precisar excluir o usuário</li>
-                <li><strong>Excluir Usuário:</strong> Remova permanentemente usuários que não são mais necessários</li>
-              </ul>
-            </div>
-            <p className="text-sm border-l-2 border-border pl-3 text-muted-foreground">
-              <strong className="text-foreground">Atenção:</strong> Por questões de segurança, sempre use senhas fortes e oriente os usuários
-              a trocarem a senha inicial após o primeiro acesso.
+          <AccordionContent className="space-y-3 pt-4 text-sm">
+            <ul className="list-disc space-y-1 pl-5">
+              <li><strong>Usuários:</strong> adicione, edite, desative ou exclua quem acessa o sistema.</li>
+              <li><strong>Assinatura:</strong> veja o plano, os dias restantes do teste e reative quando necessário.</li>
+            </ul>
+            <p className="border-l-2 border-border pl-3 text-muted-foreground">
+              <strong className="text-foreground">Atenção:</strong> use senhas fortes e oriente os usuários a trocar a senha inicial no primeiro acesso.
             </p>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
 
-      {/* FAQ Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Perguntas Frequentes</CardTitle>
+          <CardTitle>Perguntas frequentes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div>
-            <p className="font-medium">Como faço para importar dados em massa?</p>
-            <p className="text-muted-foreground">
-              Atualmente não há importação em massa. Os dados devem ser cadastrados manualmente através das telas de cadastro.
-            </p>
+            <p className="font-medium">Como registro um lançamento mais rápido?</p>
+            <p className="text-muted-foreground">Clique em +, digite o valor, escolha categoria e forma e aperte Enter. Para vários seguidos, use Ctrl+Enter (Salvar e novo).</p>
+          </div>
+          <div>
+            <p className="font-medium">Como vejo o que ainda falta pagar?</p>
+            <p className="text-muted-foreground">No Início, o cartão “A pagar” e a lista “Pendentes do mês”. Em Lançamentos, clique no cartão “Pendente” ou filtre por status.</p>
           </div>
           <div>
             <p className="font-medium">Posso acessar de vários dispositivos?</p>
-            <p className="text-muted-foreground">
-              Sim! O sistema é responsivo e pode ser acessado de computadores, tablets e celulares.
-            </p>
-          </div>
-          <div>
-            <p className="font-medium">Os dados ficam salvos na nuvem?</p>
-            <p className="text-muted-foreground">
-              Sim, todos os dados são armazenados de forma segura em nuvem e sincronizados automaticamente.
-            </p>
+            <p className="text-muted-foreground">Sim. O sistema funciona em computadores, tablets e celulares; no celular a navegação fica na barra inferior.</p>
           </div>
           <div>
             <p className="font-medium">Como faço backup dos meus dados?</p>
-            <p className="text-muted-foreground">
-              Use as funções de exportação (Excel/CSV/PDF) nas telas de Registro e Relatórios para criar cópias dos seus dados.
-            </p>
+            <p className="text-muted-foreground">Use Exportar (Excel/CSV) em Lançamentos e Relatórios, ou o PDF do relatório.</p>
+          </div>
+          <div>
+            <p className="font-medium">Como importo dados em massa?</p>
+            <p className="text-muted-foreground">Ainda não há importação em massa; os dados são cadastrados pelas telas do sistema.</p>
           </div>
         </CardContent>
       </Card>

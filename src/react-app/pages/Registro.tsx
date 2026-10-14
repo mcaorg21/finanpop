@@ -1,1628 +1,492 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/react-app/components/ui/card";
-import { Button } from "@/react-app/components/ui/button";
-import { Input } from "@/react-app/components/ui/input";
-import { Label } from "@/react-app/components/ui/label";
-import { Textarea } from "@/react-app/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/react-app/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/react-app/components/ui/table";
+import {
+  CheckCircle2,
+  Copy,
+  Download,
+  Filter,
+  Paperclip,
+  Pencil,
+  Plus,
+  Receipt,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+
+import { cn } from "@/react-app/lib/utils";
 import { Badge } from "@/react-app/components/ui/badge";
-import { Loader2, X, ChevronDown, ChevronRight } from "lucide-react";
-import { useToast } from "@/react-app/hooks/use-toast";
+import { Button } from "@/react-app/components/ui/button";
+import { EmptyState } from "@/react-app/components/ui/empty-state";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/react-app/components/ui/input-group";
+import { Label } from "@/react-app/components/ui/label";
+import { Pagination } from "@/react-app/components/ui/pagination";
+import { Popover, PopoverContent, PopoverTrigger } from "@/react-app/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/react-app/components/ui/toggle-group";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/react-app/components/ui/dropdown-menu";
+import { MonthNavigator } from "@/react-app/components/app/MonthNavigator";
+import { MultiSelectPopover } from "@/react-app/components/app/MultiSelectPopover";
+import { PageHeader } from "@/react-app/components/app/PageHeader";
+import { ResponsiveList, type Column } from "@/react-app/components/app/ResponsiveList";
+import { RowActionsMenu } from "@/react-app/components/app/RowActionsMenu";
+import { StatCard } from "@/react-app/components/app/StatCard";
 import { useAlert } from "@/react-app/hooks/use-alert";
+import { useToast } from "@/react-app/hooks/use-toast";
+import { useReferenceData } from "@/react-app/hooks/use-reference-data";
+import { useTransactionSheet, type TransactionRecord } from "@/react-app/hooks/use-transaction-sheet";
+import { exportRows } from "@/react-app/lib/export";
+import { currentMonth, formatCurrency, formatDate, formatMonthLabel, isOverdue } from "@/react-app/lib/format";
+import {
+  PAYMENT_METHODS,
+  dateFieldLabels,
+  isDateField,
+  paymentMethodLabel,
+  statusLabels,
+  typeLabels,
+  type DateField,
+} from "@/react-app/lib/labels";
 
-interface Attachment {
-  id: number;
-  transaction_id: number;
-  filename: string;
-  original_name: string;
-  content_type: string;
-  size: number;
+const PAGE_SIZE = 25;
+const DATE_FIELD_KEY = "finanpop_lancamentos_date_field";
+const ALL = "ALL";
+const isMonth = (v: string | null): v is string => !!v && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+
+interface Summary {
+  receitas: number;
+  despesas: number;
+  saldo: number;
+  receitas_pendentes: number;
+  despesas_pendentes: number;
+  atrasados: number;
+  atrasados_total: number;
 }
 
-interface Transaction {
-  id: number;
-  date: string;
-  type: "REVENUE" | "EXPENSE";
-  amount: number;
-  home_id: number;
-  home_name: string;
-  category_id: number;
-  category_name: string;
-  employee_id: number | null;
-  employee_name: string | null;
-  company_id: number | null;
-  company_name: string | null;
-  payment_method: string;
-  status: "PENDING" | "PAID" | "CANCELED";
-  description: string | null;
-  notes: string | null;
-  attachment_count: number;
-  due_date: string | null;
-  payment_date: string | null;
-}
-
-interface Home {
-  id: number;
-  name: string;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  kind: "REVENUE" | "EXPENSE";
-  parent_id: number | null;
-}
-
-interface Employee {
-  id: number;
-  name: string;
-  is_active: number;
-}
-
-interface Company {
-  id: number;
-  name: string;
-  is_active: number;
-}
-
-// Formata valor para exibição (1234.56 -> "1.234,56")
-const formatInputCurrency = (value: string): string => {
-  // Remove tudo exceto números
-  const numbers = value.replace(/\D/g, "");
-  if (!numbers) return "";
-  
-  // Converte para centavos e depois para reais
-  const cents = parseInt(numbers, 10);
-  const reais = (cents / 100).toFixed(2);
-  
-  // Formata com separadores brasileiros
-  const [intPart, decPart] = reais.split(".");
-  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${formattedInt},${decPart}`;
-};
-
-// Converte valor formatado para número (1.234,56 -> 1234.56)
-const parseCurrencyToNumber = (value: string): string => {
-  if (!value) return "";
-  const numbers = value.replace(/\D/g, "");
-  if (!numbers) return "";
-  return (parseInt(numbers, 10) / 100).toString();
-};
-
-const emptyForm = {
-  date: new Date().toISOString().split("T")[0],
-  type: "EXPENSE" as "REVENUE" | "EXPENSE",
-  amount: "", // Stored as formatted string for display
-  home_id: "",
-  category_id: "",
-  employee_id: "",
-  company_id: "",
-  payment_method: "",
-  status: "PENDING",
-  description: "",
-  notes: "",
-  due_date: "",
-  payment_date: "",
+const emptySummary: Summary = {
+  receitas: 0, despesas: 0, saldo: 0, receitas_pendentes: 0, despesas_pendentes: 0, atrasados: 0, atrasados_total: 0,
 };
 
 export default function RegistroPage() {
   const { toast } = useToast();
   const { confirm } = useAlert();
-  const [isOpen, setIsOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const categories = useReferenceData((s) => s.categories);
+  const homes = useReferenceData((s) => s.homes);
+  const loadReference = useReferenceData((s) => s.load);
+
+  const openCreate = useTransactionSheet((s) => s.openCreate);
+  const openEdit = useTransactionSheet((s) => s.openEdit);
+  const openDuplicate = useTransactionSheet((s) => s.openDuplicate);
+  const notifySaved = useTransactionSheet((s) => s.notifySaved);
+  const version = useTransactionSheet((s) => s.version);
+
+  // ── Estado na URL ─────────────────────────────────────────────
+  const month = isMonth(searchParams.get("month")) ? searchParams.get("month")! : currentMonth();
+  const dateField: DateField = (() => {
+    const fromUrl = searchParams.get("date_field");
+    if (isDateField(fromUrl)) return fromUrl;
+    const saved = localStorage.getItem(DATE_FIELD_KEY);
+    return isDateField(saved) ? saved : "date";
+  })();
+  const q = searchParams.get("q") ?? "";
+  const type = searchParams.get("type") ?? "";
+  const status = searchParams.get("status") ?? "";
+  const paymentMethod = searchParams.get("payment_method") ?? "";
+  const categoryIds = searchParams.getAll("category_ids");
+  const homeIds = searchParams.getAll("home_ids");
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+
+  const update = (patch: Record<string, string | string[] | null>, opts: { keepPage?: boolean } = {}) => {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(patch)) {
+      next.delete(key);
+      if (Array.isArray(value)) value.forEach((v) => next.append(key, v));
+      else if (value) next.set(key, value);
+    }
+    if (!opts.keepPage) next.delete("page");
+    setSearchParams(next, { replace: true });
+  };
+
+  const setDateField = (v: DateField) => {
+    localStorage.setItem(DATE_FIELD_KEY, v);
+    update({ date_field: v });
+  };
+
+  // ── Busca com debounce ────────────────────────────────────────
+  const [searchText, setSearchText] = useState(q);
+  useEffect(() => setSearchText(q), [q]);
+  useEffect(() => {
+    if (searchText === q) return;
+    const t = setTimeout(() => update({ q: searchText.trim() }), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText]);
+
+  // ── Dados ─────────────────────────────────────────────────────
+  const [items, setItems] = useState<TransactionRecord[]>([]);
+  const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<Summary>(emptySummary);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [homes, setHomes] = useState<Home[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
-  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
-  const [enableRepeat, setEnableRepeat] = useState(false);
-  const [repeatMonths, setRepeatMonths] = useState("2");
-  const [cardType, setCardType] = useState<"" | "credit" | "debit">("");
-  const [installments, setInstallments] = useState("2");
-  const [quickCompany, setQuickCompany] = useState("");
-  const [isSavingCompany, setIsSavingCompany] = useState(false);
-  const [showQuickCompany, setShowQuickCompany] = useState(false);
-  
-  // Filters
-  const [filterDateStart, setFilterDateStart] = useState("");
-  const [filterDateEnd, setFilterDateEnd] = useState("");
-  const [filterDueDateStart, setFilterDueDateStart] = useState("");
-  const [filterDueDateEnd, setFilterDueDateEnd] = useState("");
-  const [filterType, setFilterType] = useState<"" | "REVENUE" | "EXPENSE">("");
-  const [filterCategoryId, setFilterCategoryId] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterPaymentMethod, setFilterPaymentMethod] = useState("");
-  const [filterSearch, setFilterSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
-  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
-  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchData = async () => {
-    try {
-      const [transRes, homesRes, categoriesRes, employeesRes, companiesRes] = await Promise.all([
-        fetch("/app/api/transactions", { credentials: "include" }),
-        fetch("/app/api/homes", { credentials: "include" }),
-        fetch("/app/api/categories", { credentials: "include" }),
-        fetch("/app/api/employees", { credentials: "include" }),
-        fetch("/app/api/companies", { credentials: "include" }),
-      ]);
-
-      if (transRes.ok) setTransactions(await transRes.json());
-      if (homesRes.ok) setHomes(await homesRes.json());
-      if (categoriesRes.ok) setCategories(await categoriesRes.json());
-      if (employeesRes.ok) setEmployees(await employeesRes.json());
-      if (companiesRes.ok) setCompanies(await companiesRes.json());
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setIsLoading(false);
+  const buildParams = (withPage: boolean) => {
+    const p = new URLSearchParams();
+    p.set("month", month);
+    p.set("date_field", dateField);
+    if (q) p.set("q", q);
+    if (type) p.set("type", type);
+    if (status) p.set("status", status);
+    if (paymentMethod) p.set("payment_method", paymentMethod);
+    categoryIds.forEach((id) => p.append("category_ids[]", id));
+    homeIds.forEach((id) => p.append("home_ids[]", id));
+    p.set("sort", dateField === "due_date" ? "due_date_desc" : dateField === "payment_date" ? "payment_date_desc" : "date_desc");
+    if (withPage) {
+      p.set("page", String(page));
+      p.set("page_size", String(PAGE_SIZE));
     }
+    return p;
   };
 
+  const filterKey = [month, dateField, q, type, status, paymentMethod, categoryIds.join(","), homeIds.join(","), page].join("|");
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    loadReference();
+  }, [loadReference]);
 
-  // Close category dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-        setIsCategoryDropdownOpen(false);
-      }
-    };
-
-    if (isCategoryDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isCategoryDropdownOpen]);
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!form.date) newErrors.date = "Data é obrigatória";
-    const numericAmount = parseFloat(parseCurrencyToNumber(form.amount));
-    if (!form.amount || isNaN(numericAmount) || numericAmount <= 0) newErrors.amount = "Valor deve ser maior que zero";
-    if (!form.home_id) newErrors.home_id = "Selecione um centro de custo";
-    if (!form.category_id) newErrors.category_id = "Selecione uma categoria";
-    if (!form.payment_method) newErrors.payment_method = "Selecione uma forma de pagamento";
-    if (form.payment_method === "CARD" && !cardType) newErrors.cardType = "Selecione Débito ou Crédito";
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const uploadFiles = async (transactionId: number) => {
-    for (const file of pendingFiles) {
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      await fetch(`/app/api/transactions/${transactionId}/attachments`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
+    let cancelled = false;
+    setIsLoading(true);
+    fetch(`/app/api/transactions?${buildParams(true)}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((data) => {
+        if (cancelled) return;
+        setItems(data.items ?? []);
+        setTotal(data.total ?? 0);
+        setSummary({ ...emptySummary, ...(data.summary ?? {}) });
+      })
+      .catch(() => {
+        if (!cancelled) toast({ title: "Erro ao carregar lançamentos", variant: "destructive" });
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
       });
-    }
-  };
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, version]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
-      return;
-    }
-    
-    setIsSaving(true);
-
+  // ── Ações ─────────────────────────────────────────────────────
+  const markPaid = async (t: TransactionRecord) => {
     try {
-      const url = editingId ? `/app/api/transactions/${editingId}` : "/app/api/transactions";
-      const method = editingId ? "PUT" : "POST";
-
-      const isCardCredit = form.payment_method === "CARD" && cardType === "credit";
-      const numInstallments = isCardCredit && !editingId ? Math.min(Math.max(parseInt(installments) || 1, 1), 48) : 1;
-      const totalAmount = parseFloat(parseCurrencyToNumber(form.amount));
-      const installmentAmount = numInstallments > 1
-        ? Math.round((totalAmount / numInstallments) * 100) / 100
-        : totalAmount;
-
-      const payload = {
-        date: form.date,
-        type: form.type,
-        amount: installmentAmount,
-        home_id: parseInt(form.home_id),
-        category_id: parseInt(form.category_id),
-        employee_id: form.employee_id ? parseInt(form.employee_id) : null,
-        company_id: form.company_id ? parseInt(form.company_id) : null,
-        payment_method: form.payment_method,
-        status: form.status,
-        description: form.description || null,
-        notes: form.notes || null,
-        due_date: form.due_date || null,
-        payment_date: form.payment_date || null,
-      };
-
-      const res = await fetch(url, {
-        method,
+      const res = await fetch(`/app/api/transactions/${t.id}/status`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ status: "PAID" }),
         credentials: "include",
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        const transactionId = editingId || data.id;
-
-        // Upload pending files
-        if (pendingFiles.length > 0) {
-          setIsUploadingFiles(true);
-          await uploadFiles(transactionId);
-          setIsUploadingFiles(false);
-        }
-
-        // Create installment records (card credit)
-        if (!editingId && numInstallments > 1) {
-          for (let i = 1; i < numInstallments; i++) {
-            await fetch("/app/api/transactions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...payload,
-                date: addMonths(payload.date, i),
-                due_date: payload.due_date ? addMonths(payload.due_date, i) : null,
-                payment_date: null,
-                status: "PENDING",
-              }),
-              credentials: "include",
-            });
-          }
-        }
-
-        // Create repeated records if enabled (only for new transactions, not when using installments)
-        if (!editingId && enableRepeat && numInstallments === 1) {
-          const months = Math.min(Math.max(parseInt(repeatMonths) || 1, 1), 60);
-          for (let i = 1; i <= months; i++) {
-            await fetch("/app/api/transactions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...payload,
-                date: addMonths(payload.date, i),
-                due_date: payload.due_date ? addMonths(payload.due_date, i) : null,
-                payment_date: null,
-                status: "PENDING",
-              }),
-              credentials: "include",
-            });
-          }
-        }
-
-        setIsOpen(false);
-        setForm(emptyForm);
-        setEditingId(null);
-        setErrors({});
-        setPendingFiles([]);
-        setExistingAttachments([]);
-        setEnableRepeat(false);
-        setCardType("");
-        setInstallments("2");
-        fetchData();
-        let successMsg = "Lançamento atualizado";
-        if (!editingId) {
-          if (numInstallments > 1) {
-            successMsg = `${numInstallments}x de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(installmentAmount)} criadas`;
-          } else if (enableRepeat) {
-            const rc = parseInt(repeatMonths) || 1;
-            successMsg = `Lançamento registrado + ${rc} repetição${rc > 1 ? "ões" : ""} criada${rc > 1 ? "s" : ""}`;
-          } else {
-            successMsg = "Lançamento registrado";
-          }
-        }
-        toast({ title: successMsg });
-      } else {
-        const error = await res.json();
-        toast({ title: error.error || "Erro ao salvar", variant: "destructive" });
-      }
-    } catch (error) {
-      console.error("Error saving transaction:", error);
-      toast({ title: "Erro ao salvar lançamento", variant: "destructive" });
-    } finally {
-      setIsSaving(false);
+      if (!res.ok) throw new Error();
+      toast({ title: "Marcado como pago" });
+      notifySaved();
+    } catch {
+      toast({ title: "Erro ao atualizar lançamento", variant: "destructive" });
     }
   };
 
-  const fetchAttachments = async (transactionId: number) => {
-    try {
-      const res = await fetch(`/app/api/transactions/${transactionId}/attachments`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setExistingAttachments(data);
-      }
-    } catch (error) {
-      console.error("Error fetching attachments:", error);
-    }
-  };
-
-  const handleEdit = async (t: Transaction) => {
-    setForm({
-      date: t.date,
-      type: t.type,
-      amount: formatInputCurrency((t.amount * 100).toFixed(0)),
-      home_id: t.home_id.toString(),
-      category_id: t.category_id.toString(),
-      employee_id: t.employee_id?.toString() || "",
-      company_id: t.company_id?.toString() || "",
-      payment_method: t.payment_method,
-      status: t.status,
-      description: t.description || "",
-      notes: t.notes || "",
-      due_date: t.due_date || "",
-      payment_date: t.payment_date || "",
-    });
-    setEditingId(t.id);
-    setPendingFiles([]);
-    await fetchAttachments(t.id);
-    setIsOpen(true);
-  };
-
-  const handleDuplicate = (t: Transaction) => {
-    setForm({
-      date: new Date().toISOString().split("T")[0],
-      type: t.type,
-      amount: formatInputCurrency((t.amount * 100).toFixed(0)),
-      home_id: t.home_id.toString(),
-      category_id: t.category_id.toString(),
-      employee_id: t.employee_id?.toString() || "",
-      company_id: t.company_id?.toString() || "",
-      payment_method: t.payment_method,
-      status: "PENDING",
-      description: t.description || "",
-      notes: t.notes || "",
-      due_date: t.due_date || "",
-      payment_date: "",
-    });
-    setEditingId(null);
-    setIsOpen(true);
-  };
-
-  const handleDelete = async (id: number) => {
+  const remove = async (t: TransactionRecord) => {
     const ok = await confirm({
       title: "Excluir lançamento?",
       message: "Esta ação não pode ser desfeita.",
       confirmText: "Excluir",
       cancelText: "Cancelar",
+      variant: "destructive",
     });
     if (!ok) return;
-
     try {
-      const res = await fetch(`/app/api/transactions/${id}`, { method: "DELETE", credentials: "include" });
-      if (res.ok) {
-        fetchData();
-        toast({ title: "Lançamento excluído" });
-      }
-    } catch (error) {
-      console.error("Error deleting transaction:", error);
-    }
-  };
-
-  const handleOpenNew = () => {
-    setForm(emptyForm);
-    setEditingId(null);
-    setErrors({});
-    setPendingFiles([]);
-    setExistingAttachments([]);
-    setEnableRepeat(false);
-    setRepeatMonths("2");
-    setCardType("");
-    setInstallments("2");
-    setIsOpen(true);
-  };
-
-  // Ponte: "+ Novo lançamento" (sidebar / barra inferior) chega aqui com ?new=1.
-  const [searchParams, setSearchParams] = useSearchParams();
-  useEffect(() => {
-    if (searchParams.get("new") !== "1") return;
-    handleOpenNew();
-    const next = new URLSearchParams(searchParams);
-    next.delete("new");
-    setSearchParams(next, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  const handleQuickAddCompany = async () => {
-    const name = quickCompany.trim();
-    if (!name) return;
-    setIsSavingCompany(true);
-    try {
-      const res = await fetch("/app/api/companies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const newCompany: Company = { id: data.id, name, is_active: 1 };
-        setCompanies((prev) => [...prev, newCompany]);
-        setForm((prev) => ({ ...prev, company_id: String(data.id) }));
-        setQuickCompany("");
-        setShowQuickCompany(false);
-        toast({ title: `Empresa "${name}" criada e selecionada` });
-      } else {
-        const err = await res.json();
-        toast({ title: err.error || "Erro ao criar empresa", variant: "destructive" });
-      }
+      const res = await fetch(`/app/api/transactions/${t.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error();
+      toast({ title: "Lançamento excluído" });
+      notifySaved();
     } catch {
-      toast({ title: "Erro de conexão", variant: "destructive" });
-    } finally {
-      setIsSavingCompany(false);
+      toast({ title: "Erro ao excluir lançamento", variant: "destructive" });
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      setPendingFiles([...pendingFiles, ...Array.from(files)]);
-    }
-    e.target.value = "";
-  };
-
-  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      setPendingFiles([...pendingFiles, ...Array.from(files)]);
-    }
-    e.target.value = "";
-  };
-
-  const removePendingFile = (index: number) => {
-    setPendingFiles(pendingFiles.filter((_, i) => i !== index));
-  };
-
-  const handleDeleteAttachment = async (attachmentId: number) => {
-    const ok = await confirm({
-      title: "Excluir anexo?",
-      message: "Esta ação não pode ser desfeita.",
-      confirmText: "Excluir",
-      cancelText: "Cancelar",
-    });
-    if (!ok) return;
-
+  const [isExporting, setIsExporting] = useState(false);
+  const handleExport = async (format: "xls" | "csv") => {
+    setIsExporting(true);
     try {
-      const res = await fetch(`/app/api/attachments/${attachmentId}`, { 
-        method: "DELETE", 
-        credentials: "include" 
-      });
-      if (res.ok) {
-        setExistingAttachments(existingAttachments.filter(a => a.id !== attachmentId));
-        toast({ title: "Anexo excluído" });
-      }
-    } catch (error) {
-      console.error("Error deleting attachment:", error);
+      const res = await fetch(`/app/api/transactions?${buildParams(false)}`, { credentials: "include" });
+      if (!res.ok) throw new Error();
+      const rows = await res.json();
+      exportRows(rows, format, `lancamentos_${month}`);
+    } catch {
+      toast({ title: "Erro ao exportar", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
     }
   };
 
-  const viewAttachment = async (attachment: Attachment) => {
-    window.open(`/app/api/attachments/${attachment.id}/download`, "_blank");
-  };
+  const actionsFor = (t: TransactionRecord) => [
+    { label: "Editar", icon: Pencil, onSelect: () => openEdit(t) },
+    { label: "Duplicar", icon: Copy, onSelect: () => openDuplicate(t) },
+    { label: "Marcar como pago", icon: CheckCircle2, onSelect: () => markPaid(t), hidden: t.status !== "PENDING" },
+    { label: "Anexos", icon: Paperclip, onSelect: () => openEdit(t, { expandDetails: true }) },
+    { label: "Excluir", icon: Trash2, destructive: true, separatorBefore: true, onSelect: () => remove(t) },
+  ];
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
-  const getFileTypeLabel = (contentType: string) => {
-    if (contentType.startsWith("image/")) return "IMG";
-    if (contentType === "application/pdf") return "PDF";
-    return "DOC";
-  };
-
-  const addMonths = (dateStr: string, months: number): string => {
-    const d = new Date(dateStr + "T12:00:00");
-    d.setMonth(d.getMonth() + months);
-    return d.toISOString().split("T")[0];
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr + "T00:00:00").toLocaleDateString("pt-BR");
-  };
-
-  // Apply filters
-  const filteredTransactions = transactions.filter((t) => {
-    if (filterDateStart && t.date < filterDateStart) return false;
-    if (filterDateEnd && t.date > filterDateEnd) return false;
-    if (filterDueDateStart && (!t.due_date || t.due_date < filterDueDateStart)) return false;
-    if (filterDueDateEnd && (!t.due_date || t.due_date > filterDueDateEnd)) return false;
-    if (filterType && t.type !== filterType) return false;
-    if (filterCategoryId && t.category_id.toString() !== filterCategoryId) return false;
-    if (filterStatus && t.status !== filterStatus) return false;
-    if (filterPaymentMethod && t.payment_method !== filterPaymentMethod) return false;
-    if (filterSearch) {
-      const q = filterSearch.toLowerCase();
-      const match =
-        t.description?.toLowerCase().includes(q) ||
-        t.category_name?.toLowerCase().includes(q) ||
-        t.company_name?.toLowerCase().includes(q) ||
-        t.employee_name?.toLowerCase().includes(q) ||
-        t.notes?.toLowerCase().includes(q);
-      if (!match) return false;
+  // ── Opções de filtro ──────────────────────────────────────────
+  const categoryOptions = useMemo(() => {
+    const parents = categories.filter((c) => c.parent_id == null);
+    const out: { value: string; label: string; indent?: boolean }[] = [];
+    for (const p of parents.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))) {
+      out.push({ value: String(p.id), label: p.name });
+      categories
+        .filter((c) => c.parent_id === p.id)
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+        .forEach((c) => out.push({ value: String(c.id), label: c.name, indent: true }));
     }
-    return true;
-  });
+    return out;
+  }, [categories]);
+  const homeOptions = useMemo(() => homes.map((h) => ({ value: String(h.id), label: h.name })), [homes]);
 
-  const totalReceitas = filteredTransactions
-    .filter((t) => t.type === "REVENUE" && t.status !== "CANCELED")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const activeFilters = [type, status, paymentMethod].filter(Boolean).length + (categoryIds.length ? 1 : 0) + (homeIds.length ? 1 : 0);
+  const hasAnyFilter = activeFilters > 0 || !!q;
+  const clearFilters = () => update({ type: null, status: null, payment_method: null, category_ids: null, home_ids: null, q: null });
 
-  const totalDespesas = filteredTransactions
-    .filter((t) => t.type === "EXPENSE" && t.status !== "CANCELED")
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const saldo = totalReceitas - totalDespesas;
-
-  const clearFilters = () => {
-    setFilterDateStart("");
-    setFilterDateEnd("");
-    setFilterDueDateStart("");
-    setFilterDueDateEnd("");
-    setFilterType("");
-    setFilterCategoryId("");
-    setFilterStatus("");
-    setFilterPaymentMethod("");
-    setFilterSearch("");
-  };
-
-  const hasActiveFilters = filterDateStart || filterDateEnd || filterDueDateStart || filterDueDateEnd || filterType || filterCategoryId || filterStatus || filterPaymentMethod || filterSearch;
-
-  const handleExportExcel = () => {
-    const headers = ["Data", "Vencimento", "Pagamento", "Tipo", "Categoria", "Centro de Custo", "Funcionário", "Empresa", "Valor", "Status", "Forma Pagamento", "Descrição"];
-    const rows = filteredTransactions.map((t) => [
-      t.date,
-      t.due_date || "",
-      t.payment_date || "",
-      t.type === "REVENUE" ? "Receita" : "Despesa",
-      t.category_name || "",
-      t.home_name || "",
-      t.employee_name || "",
-      t.company_name || "",
-      t.amount,
-      t.status === "PAID" ? "Pago" : t.status === "PENDING" ? "Pendente" : "Cancelado",
-      paymentMethodLabels[t.payment_method] || t.payment_method,
-      t.description || ""
-    ]);
-    
-    const html = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-      <head><meta charset="UTF-8"></head>
-      <body>
-      <table border="1">
-        <thead><tr>${headers.map(h => `<th style="background:#333;color:#fff;font-weight:bold;">${h}</th>`).join("")}</tr></thead>
-        <tbody>
-          ${rows.map((row) => `<tr>${row.map((cell, i) => 
-            i === 8 ? `<td style="text-align:right;">${Number(cell).toFixed(2).replace('.', ',')}</td>` : 
-            `<td>${String(cell).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`
-          ).join("")}</tr>`).join("")}
-        </tbody>
-      </table>
-      </body></html>
-    `;
-    
-    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `registros_${new Date().toISOString().split("T")[0]}.xls`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportCSV = () => {
-    const headers = ["Data", "Vencimento", "Pagamento", "Tipo", "Categoria", "Centro de Custo", "Funcionário", "Empresa", "Valor", "Status", "Forma Pagamento", "Descrição"];
-    const rows = filteredTransactions.map((t) => [
-      t.date,
-      t.due_date || "",
-      t.payment_date || "",
-      t.type === "REVENUE" ? "Receita" : "Despesa",
-      t.category_name || "",
-      t.home_name || "",
-      t.employee_name || "",
-      t.company_name || "",
-      t.amount,
-      t.status === "PAID" ? "Pago" : t.status === "PENDING" ? "Pendente" : "Cancelado",
-      paymentMethodLabels[t.payment_method] || t.payment_method,
-      t.description || ""
-    ]);
-    
-    const csvContent = [headers, ...rows]
-      .map(row => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `registros_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Organize categories hierarchically
-  const filteredCategories = (() => {
-    const typeFiltered = categories.filter((c) => c.kind === form.type);
-    const parents = typeFiltered.filter(c => !c.parent_id);
-    const children: Record<number, Category[]> = {};
-    
-    typeFiltered.forEach(c => {
-      if (c.parent_id) {
-        if (!children[c.parent_id]) children[c.parent_id] = [];
-        children[c.parent_id].push(c);
-      }
-    });
-
-    // Build flat list with hierarchy preserved
-    const list: (Category & { isChild?: boolean })[] = [];
-    parents.forEach(parent => {
-      list.push(parent);
-      if (children[parent.id]) {
-        children[parent.id].forEach(child => {
-          list.push({ ...child, isChild: true });
-        });
-      }
-    });
-
-    return list;
-  })();
-  // Show active employees + the currently selected one (even if inactive)
-  const employeesForSelect = employees.filter((e) => 
-    e.is_active || (form.employee_id && e.id.toString() === form.employee_id)
+  // ── Colunas ───────────────────────────────────────────────────
+  const describe = (t: TransactionRecord) => t.description || t.category_name || "—";
+  const amountCell = (t: TransactionRecord) => (
+    <span className={cn("font-semibold tabular-nums", t.type === "REVENUE" ? "text-success" : "text-danger", t.status === "CANCELED" && "line-through opacity-60")}>
+      {t.type === "REVENUE" ? "+" : "-"} {formatCurrency(t.amount)}
+    </span>
   );
-  // Show active companies + the currently selected one (even if inactive)
-  const companiesForSelect = companies.filter((c) =>
-    c.is_active || (form.company_id && c.id.toString() === form.company_id)
+  const groupTag = (t: TransactionRecord) =>
+    t.group_index && t.group_count && t.group_count > 1 ? (
+      <span className="rounded border border-border px-1 text-[10px] text-muted-foreground tabular-nums">{t.group_index}/{t.group_count}</span>
+    ) : null;
+
+  const columns: Column<TransactionRecord>[] = [
+    { key: "date", header: "Data", cell: (t) => <span className="tabular-nums">{formatDate(t.date)}</span> },
+    {
+      key: "due",
+      header: "Vencimento",
+      cell: (t) =>
+        t.due_date ? (
+          <span className={cn("inline-flex items-center gap-1.5 tabular-nums", isOverdue(t.due_date, t.status) && "text-danger")}>
+            {formatDate(t.due_date)}
+            {isOverdue(t.due_date, t.status) && <Badge variant="danger">Atrasado</Badge>}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    { key: "type", header: "Tipo", cell: (t) => <Badge variant={typeLabels[t.type].variant}>{typeLabels[t.type].label}</Badge> },
+    {
+      key: "description",
+      header: "Descrição",
+      className: "max-w-[240px]",
+      cell: (t) => (
+        <span className="flex items-center gap-1.5">
+          <span className="truncate">{describe(t)}</span>
+          {Number(t.attachment_count) > 0 && <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />}
+          {groupTag(t)}
+        </span>
+      ),
+    },
+    { key: "home", header: "Centro", cell: (t) => <span className="text-muted-foreground">{t.home_name}</span> },
+    { key: "category", header: "Categoria", className: "max-w-[200px] truncate", cell: (t) => <span className="text-muted-foreground">{t.category_name}</span> },
+    { key: "method", header: "Forma", cell: (t) => <span className="text-muted-foreground">{paymentMethodLabel(t.payment_method)}</span> },
+    { key: "status", header: "Status", cell: (t) => <Badge variant={statusLabels[t.status].variant}>{statusLabels[t.status].label}</Badge> },
+    { key: "amount", header: "Valor", align: "right", cell: amountCell },
+    { key: "actions", header: "", align: "right", className: "w-12", cell: (t) => <RowActionsMenu actions={actionsFor(t)} /> },
+  ];
+
+  const renderCard = (t: TransactionRecord) => (
+    <div className="flex items-start gap-3">
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-center gap-2">
+          <Badge variant={typeLabels[t.type].variant}>{typeLabels[t.type].label}</Badge>
+          <span className="truncate text-sm font-medium">{describe(t)}</span>
+          {Number(t.attachment_count) > 0 && <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />}
+          {groupTag(t)}
+        </div>
+        <p className="truncate text-xs text-muted-foreground">{t.home_name} • {t.category_name}</p>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {formatDate(t.date)}
+          {t.due_date && <> • Venc. {formatDate(t.due_date, { year: false })}</>}
+          {isOverdue(t.due_date, t.status) && <span className="ml-1 font-medium text-danger">Atrasado</span>}
+        </p>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        {amountCell(t)}
+        <Badge variant={statusLabels[t.status].variant}>{statusLabels[t.status].label}</Badge>
+      </div>
+      <RowActionsMenu actions={actionsFor(t)} className="-mr-2" />
+    </div>
   );
-  
-  // All categories organized hierarchically for filters
-  const allCategoriesHierarchical = (() => {
-    const parents = categories.filter(c => !c.parent_id);
-    const children: Record<number, Category[]> = {};
-    
-    categories.forEach(c => {
-      if (c.parent_id) {
-        if (!children[c.parent_id]) children[c.parent_id] = [];
-        children[c.parent_id].push(c);
-      }
-    });
 
-    const list: (Category & { isChild?: boolean })[] = [];
-    parents.forEach(parent => {
-      list.push(parent);
-      if (children[parent.id]) {
-        children[parent.id].forEach(child => {
-          list.push({ ...child, isChild: true });
-        });
-      }
-    });
-
-    return list;
-  })();
-
-  const paymentMethodLabels: Record<string, string> = {
-    CASH: "Dinheiro",
-    PIX: "Pix",
-    PIX_PARCELADO: "Pix Parcelado",
-    CARD: "Cartão",
-    BOLETO: "Boleto",
-    BOLETO_DDA: "Boleto (DDA)",
-    TRANSFER: "Transferência",
-  };
-
-  const statusLabels: Record<string, { label: string; variant: "success" | "secondary" | "outline" }> = {
-    PENDING: { label: "Pendente", variant: "outline" },
-    PAID: { label: "Pago", variant: "success" },
-    CANCELED: { label: "Cancelado", variant: "secondary" },
-  };
+  const pendente = summary.receitas_pendentes + summary.despesas_pendentes;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Registros</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Lançamentos financeiros
-          </p>
-        </div>
-        <div className="flex flex-1 sm:max-w-xs relative">
-          <Input
-            placeholder="Buscar descrição, categoria, empresa..."
-            value={filterSearch}
-            onChange={(e) => setFilterSearch(e.target.value)}
-            className="pr-8"
-          />
-          {filterSearch && (
-            <button
-              type="button"
-              onClick={() => setFilterSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
-            Filtros
-            {hasActiveFilters && <Badge variant="secondary" className="ml-1.5">{[filterDateStart, filterDateEnd, filterDueDateStart, filterDueDateEnd, filterType, filterCategoryId, filterStatus, filterPaymentMethod].filter(Boolean).length}</Badge>}
-          </Button>
-          <Button variant="outline" onClick={handleExportExcel} disabled={filteredTransactions.length === 0}>
-            Excel
-          </Button>
-          <Button variant="outline" onClick={handleExportCSV} disabled={filteredTransactions.length === 0}>
-            CSV
-          </Button>
-          <Button onClick={handleOpenNew}>
-            <span className="hidden sm:inline">Novo Lançamento</span>
-            <span className="sm:hidden">Novo</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Filters Section */}
-      {showFilters && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label>Data Início</Label>
-                <Input
-                  type="date"
-                  value={filterDateStart}
-                  onChange={(e) => setFilterDateStart(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Data Fim</Label>
-                <Input
-                  type="date"
-                  value={filterDateEnd}
-                  onChange={(e) => setFilterDateEnd(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Vencimento Início</Label>
-                <Input
-                  type="date"
-                  value={filterDueDateStart}
-                  onChange={(e) => setFilterDueDateStart(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Vencimento Fim</Label>
-                <Input
-                  type="date"
-                  value={filterDueDateEnd}
-                  onChange={(e) => setFilterDueDateEnd(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select value={filterType} onValueChange={(v) => setFilterType(v === "all" ? "" : v as "" | "REVENUE" | "EXPENSE")}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="EXPENSE">Despesa</SelectItem>
-                    <SelectItem value="REVENUE">Receita</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Select value={filterCategoryId} onValueChange={(v) => setFilterCategoryId(v === "all" ? "" : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {allCategoriesHierarchical.map((c) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>
-                        {(c as any).isChild ? `↳ ${c.name}` : c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="PENDING">Pendente</SelectItem>
-                    <SelectItem value="PAID">Pago</SelectItem>
-                    <SelectItem value="CANCELED">Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Forma de Pagamento</Label>
-                <Select value={filterPaymentMethod} onValueChange={(v) => setFilterPaymentMethod(v === "all" ? "" : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="CASH">Dinheiro</SelectItem>
-                    <SelectItem value="PIX">Pix</SelectItem>
-                    <SelectItem value="PIX_PARCELADO">Pix Parcelado</SelectItem>
-                    <SelectItem value="CARD">Cartão</SelectItem>
-                    <SelectItem value="BOLETO">Boleto</SelectItem>
-                    <SelectItem value="BOLETO_DDA">Boleto (DDA)</SelectItem>
-                    <SelectItem value="TRANSFER">Transferência</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {hasActiveFilters && (
-              <div className="flex justify-end mt-4">
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
-                  Limpar Filtros
+    <div className="space-y-5">
+      <PageHeader
+        title="Lançamentos"
+        actions={
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={isExporting}>
+                  <Download /> Exportar
                 </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => handleExport("xls")}>Excel (.xls)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleExport("csv")}>CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button className="hidden lg:inline-flex" onClick={() => openCreate()}>
+              <Plus /> Novo lançamento
+            </Button>
+          </>
+        }
+        toolbar={
+          <>
+            <MonthNavigator value={month} onChange={(m) => update({ month: m })} />
+            <InputGroup className="w-full sm:w-72">
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              <InputGroupInput
+                placeholder="Buscar descrição, categoria, empresa..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+              />
+              {searchText && (
+                <InputGroupAddon align="inline-end">
+                  <button type="button" aria-label="Limpar busca" onClick={() => setSearchText("")}>
+                    <X className="size-4" />
+                  </button>
+                </InputGroupAddon>
+              )}
+            </InputGroup>
 
-      {/* Dialog */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Editar Lançamento" : "Novo Lançamento"}</DialogTitle>
-            <DialogDescription>
-              Registre uma receita ou despesa
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Data Lançamento *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="due_date">Data de Vencimento</Label>
-                  <button
-                    type="button"
-                    title="Repetir data de lançamento"
-                    onClick={() => setForm({ ...form, due_date: form.date })}
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-                  >
-                    Repetir
-                  </button>
-                </div>
-                <Input
-                  id="due_date"
-                  type="date"
-                  value={form.due_date}
-                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="payment_date">Data de Pagamento</Label>
-                  <button
-                    type="button"
-                    title="Repetir data de lançamento"
-                    onClick={() => {
-                      setForm({ ...form, payment_date: form.date, status: "PAID" });
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-                  >
-                    Repetir
-                  </button>
-                </div>
-                <Input
-                  id="payment_date"
-                  type="date"
-                  value={form.payment_date}
-                  onChange={(e) => {
-                    const newPaymentDate = e.target.value;
-                    setForm({
-                      ...form,
-                      payment_date: newPaymentDate,
-                      ...(newPaymentDate ? { status: "PAID" } : {})
-                    });
-                  }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="type">Tipo *</Label>
-                <Select
-                  value={form.type}
-                  onValueChange={(v: "REVENUE" | "EXPENSE") => setForm({ ...form, type: v, category_id: "" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EXPENSE">Despesa</SelectItem>
-                    <SelectItem value="REVENUE">Receita</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="amount">Valor (R$) *</Label>
-                <Input
-                  id="amount"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="0,00"
-                  value={form.amount}
-                  onChange={(e) => {
-                    const formatted = formatInputCurrency(e.target.value);
-                    setForm({ ...form, amount: formatted });
-                    if (errors.amount) setErrors({ ...errors, amount: "" });
-                  }}
-                  className={errors.amount ? "border-destructive" : ""}
-                  required
-                />
-                {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="home">Centro de Custo *</Label>
-                <Select 
-                  value={form.home_id} 
-                  onValueChange={(v) => {
-                    setForm({ ...form, home_id: v });
-                    if (errors.home_id) setErrors({ ...errors, home_id: "" });
-                  }}
-                >
-                  <SelectTrigger className={errors.home_id ? "border-destructive" : ""}>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {homes.map((h) => (
-                      <SelectItem key={h.id} value={h.id.toString()}>
-                        {h.name}
-                      </SelectItem>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <Filter /> Filtros
+                  {activeFilters > 0 && <Badge variant="default" className="ml-1 h-5 min-w-5 px-1.5">{activeFilters}</Badge>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-[min(92vw,22rem)] gap-4">
+                <div className="space-y-1.5">
+                  <Label>Mês por</Label>
+                  <ToggleGroup type="single" full size="sm" value={dateField} onValueChange={(v) => { if (isDateField(v)) setDateField(v); }}>
+                    {(Object.keys(dateFieldLabels) as DateField[]).map((f) => (
+                      <ToggleGroupItem key={f} value={f}>{dateFieldLabels[f]}</ToggleGroupItem>
                     ))}
-                  </SelectContent>
-                </Select>
-                {errors.home_id && <p className="text-xs text-destructive">{errors.home_id}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Categoria *</Label>
-                <div className="relative" ref={categoryDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                    className={`w-full flex items-center justify-between border rounded-md px-3 py-2 text-sm ${
-                      errors.category_id ? "border-destructive" : ""
-                    }`}
-                  >
-                    <span>
-                      {form.category_id 
-                        ? (() => {
-                            const selectedCat = filteredCategories.find(c => c.id.toString() === form.category_id);
-                            if (!selectedCat) return "Selecione uma categoria";
-                            if ((selectedCat as any).isChild) {
-                              const parent = filteredCategories.find(c => c.id === selectedCat.parent_id);
-                              return `${parent?.name} → ${selectedCat.name}`;
-                            }
-                            return selectedCat.name;
-                          })()
-                        : "Selecione uma categoria"
-                      }
-                    </span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${isCategoryDropdownOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  
-                  {isCategoryDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-[380px] overflow-y-auto">
-                      {(() => {
-                        // Group by parent
-                        const parents = filteredCategories.filter(c => !c.parent_id);
-                        const childrenMap: Record<number, Category[]> = {};
-                        filteredCategories.forEach(c => {
-                          if (c.parent_id) {
-                            if (!childrenMap[c.parent_id]) childrenMap[c.parent_id] = [];
-                            childrenMap[c.parent_id].push(c);
-                          }
-                        });
-
-                        return parents.map(parent => {
-                          const children = childrenMap[parent.id] || [];
-                          const isExpanded = expandedCategories.has(parent.id);
-                          const hasChildren = children.length > 0;
-                          
-                          return (
-                            <div key={parent.id} className="border-b last:border-b-0">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (hasChildren) {
-                                    const newExpanded = new Set(expandedCategories);
-                                    if (isExpanded) {
-                                      newExpanded.delete(parent.id);
-                                    } else {
-                                      newExpanded.add(parent.id);
-                                    }
-                                    setExpandedCategories(newExpanded);
-                                  } else {
-                                    setForm({ ...form, category_id: parent.id.toString() });
-                                    if (errors.category_id) setErrors({ ...errors, category_id: "" });
-                                    setIsCategoryDropdownOpen(false);
-                                  }
-                                }}
-                                className={`w-full flex items-center justify-between p-2 hover:bg-muted/50 text-sm font-medium ${
-                                  !hasChildren && form.category_id === parent.id.toString()
-                                    ? "bg-muted text-foreground"
-                                    : ""
-                                }`}
-                              >
-                                <span>{parent.name}</span>
-                                {hasChildren && (isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
-                              </button>
-                              {isExpanded && children.length > 0 && (
-                                <div className="bg-muted/20">
-                                  {children.map(child => (
-                                    <button
-                                      key={child.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setForm({ ...form, category_id: child.id.toString() });
-                                        if (errors.category_id) setErrors({ ...errors, category_id: "" });
-                                        setIsCategoryDropdownOpen(false);
-                                      }}
-                                      className={`w-full text-left px-4 py-2 text-sm hover:bg-muted/50 ${
-                                        form.category_id === child.id.toString()
-                                          ? "bg-muted text-foreground font-medium"
-                                          : ""
-                                      }`}
-                                    >
-                                      ↳ {child.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  )}
+                  </ToggleGroup>
                 </div>
-                {errors.category_id && <p className="text-xs text-destructive">{errors.category_id}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="employee">Funcionário</Label>
-                <Select value={form.employee_id || "none"} onValueChange={(v) => setForm({ ...form, employee_id: v === "none" ? "" : v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Opcional" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {employeesForSelect.map((e) => (
-                      <SelectItem key={e.id} value={e.id.toString()}>
-                        {e.name}{!e.is_active ? " (inativo)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="company">Empresa</Label>
-                  <button
-                    type="button"
-                    onClick={() => { setShowQuickCompany(!showQuickCompany); setQuickCompany(""); }}
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-                  >
-                    + Nova
-                  </button>
+                <div className="space-y-1.5">
+                  <Label>Tipo</Label>
+                  <ToggleGroup type="single" full size="sm" value={type || ALL} onValueChange={(v) => { if (v) update({ type: v === ALL ? null : v }); }}>
+                    <ToggleGroupItem value={ALL}>Todos</ToggleGroupItem>
+                    <ToggleGroupItem value="EXPENSE">Despesas</ToggleGroupItem>
+                    <ToggleGroupItem value="REVENUE">Receitas</ToggleGroupItem>
+                  </ToggleGroup>
                 </div>
-                {showQuickCompany ? (
-                  <div className="flex gap-1">
-                    <Input
-                      autoFocus
-                      placeholder="Nome da empresa"
-                      value={quickCompany}
-                      onChange={(e) => setQuickCompany(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleQuickAddCompany(); } if (e.key === "Escape") setShowQuickCompany(false); }}
-                      className="h-9 text-sm"
-                    />
-                    <Button type="button" size="sm" onClick={handleQuickAddCompany} disabled={isSavingCompany || !quickCompany.trim()} className="h-9 px-3">
-                      {isSavingCompany ? <Loader2 className="w-3 h-3 animate-spin" /> : "OK"}
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setShowQuickCompany(false)} className="h-9 px-2">
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Select value={form.company_id || "none"} onValueChange={(v) => setForm({ ...form, company_id: v === "none" ? "" : v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Opcional" />
-                    </SelectTrigger>
+                <div className="space-y-1.5">
+                  <Label>Status</Label>
+                  <ToggleGroup type="single" full size="sm" value={status || ALL} onValueChange={(v) => { if (v) update({ status: v === ALL ? null : v }); }}>
+                    <ToggleGroupItem value={ALL}>Todos</ToggleGroupItem>
+                    <ToggleGroupItem value="PENDING">Pendente</ToggleGroupItem>
+                    <ToggleGroupItem value="PAID">Pago</ToggleGroupItem>
+                    <ToggleGroupItem value="CANCELED">Cancel.</ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Forma de pagamento</Label>
+                  <Select value={paymentMethod || ALL} onValueChange={(v) => update({ payment_method: v === ALL ? null : v })}>
+                    <SelectTrigger className="w-full" size="sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Nenhuma</SelectItem>
-                      {companiesForSelect.map((c) => (
-                        <SelectItem key={c.id} value={c.id.toString()}>
-                          {c.name}{!c.is_active ? " (inativa)" : ""}
-                        </SelectItem>
+                      <SelectItem value={ALL}>Todas</SelectItem>
+                      {PAYMENT_METHODS.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment">Forma de Pagamento *</Label>
-                <Select
-                  value={form.payment_method || ""}
-                  onValueChange={(v) => {
-                    setForm({ ...form, payment_method: v });
-                    if (v !== "CARD") setCardType("");
-                    if (errors.payment_method) setErrors({ ...errors, payment_method: "", cardType: "" });
-                  }}
-                >
-                  <SelectTrigger className={errors.payment_method ? "border-destructive" : ""}>
-                    <SelectValue placeholder="Escolher" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CASH">Dinheiro</SelectItem>
-                    <SelectItem value="PIX">Pix</SelectItem>
-                    <SelectItem value="PIX_PARCELADO">Pix Parcelado</SelectItem>
-                    <SelectItem value="CARD">Cartão</SelectItem>
-                    <SelectItem value="BOLETO">Boleto</SelectItem>
-                    <SelectItem value="BOLETO_DDA">Boleto (DDA)</SelectItem>
-                    <SelectItem value="TRANSFER">Transferência</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.payment_method && <p className="text-xs text-destructive">{errors.payment_method}</p>}
-
-                {/* Card type + installments */}
-                {form.payment_method === "CARD" && (
-                  <div className="space-y-3 pt-2">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => { setCardType("debit"); setErrors({ ...errors, cardType: "" }); }}
-                        className={`flex-1 py-1.5 text-sm rounded-md border transition-colors ${
-                          cardType === "debit"
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-input hover:bg-muted"
-                        }`}
-                      >
-                        Débito
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setCardType("credit"); setErrors({ ...errors, cardType: "" }); }}
-                        className={`flex-1 py-1.5 text-sm rounded-md border transition-colors ${
-                          cardType === "credit"
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-input hover:bg-muted"
-                        }`}
-                      >
-                        Crédito
-                      </button>
-                    </div>
-                    {errors.cardType && <p className="text-xs text-destructive">{errors.cardType}</p>}
-
-                    {cardType === "credit" && !editingId && (
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground">Parcelas:</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={48}
-                          value={installments}
-                          onChange={(e) => setInstallments(e.target.value)}
-                          className="w-16 border rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-                        />
-                        <span className="text-sm text-muted-foreground">x</span>
-                        {parseInt(installments) > 1 && (
-                          <span className="text-sm font-medium text-primary">
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-                              Math.round((parseFloat(parseCurrencyToNumber(form.amount) || "0") / (parseInt(installments) || 1)) * 100) / 100
-                            )} / parcela
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">Pendente</SelectItem>
-                    <SelectItem value="PAID">Pago</SelectItem>
-                    <SelectItem value="CANCELED">Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Input
-                id="description"
-                placeholder="Breve descrição do lançamento"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Observações</Label>
-              <Textarea
-                id="notes"
-                placeholder="Anotações adicionais"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-
-            {/* Repeat Section - only for new transactions and not when using card installments */}
-            {!editingId && !(form.payment_method === "CARD" && cardType === "credit" && parseInt(installments) > 1) && (
-              <div className="space-y-3 pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => setEnableRepeat(!enableRepeat)}
-                  className={`flex items-center gap-2 text-sm font-medium transition-colors ${
-                    enableRepeat ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Repetir lançamento por meses
-                  <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-md ${enableRepeat ? "bg-foreground text-background" : "bg-muted"}`}>
-                    {enableRepeat ? "ativado" : "desativado"}
-                  </span>
-                </button>
-                {enableRepeat && (
-                  <div className="flex items-center gap-3 pl-1">
-                    <span className="text-sm text-muted-foreground">Criar mais</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={repeatMonths}
-                      onChange={(e) => setRepeatMonths(e.target.value)}
-                      className="w-16 border rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {parseInt(repeatMonths) === 1 ? "mês" : "meses"} seguintes
-                    </span>
-                  </div>
-                )}
-                {enableRepeat && (
-                  <p className="text-xs text-muted-foreground pl-1">
-                    Serão criados {parseInt(repeatMonths) || 1} registros adicionais com status <strong>Pendente</strong>, sem data de pagamento.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Attachments Section */}
-            <div className="space-y-3 pt-2 border-t">
-              <Label>Anexos</Label>
-              <div className="flex gap-2">
-                <label className="flex-1">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <Button type="button" variant="outline" className="w-full" asChild>
-                    <span>Adicionar Arquivo</span>
-                  </Button>
-                </label>
-                <label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleCameraCapture}
-                    className="hidden"
-                  />
-                  <Button type="button" variant="outline" asChild>
-                    <span>Câmera</span>
-                  </Button>
-                </label>
-              </div>
-
-              {/* Existing Attachments (when editing) */}
-              {existingAttachments.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Anexos existentes:</p>
-                  {existingAttachments.map((attachment) => {
-                    return (
-                      <div key={attachment.id} className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                        <span className="text-[10px] font-medium text-muted-foreground border border-border rounded px-1 py-0.5 flex-shrink-0">
-                          {getFileTypeLabel(attachment.content_type)}
-                        </span>
-                        <span className="flex-1 text-sm truncate">{attachment.original_name}</span>
-                        <span className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => viewAttachment(attachment)}
-                        >
-                          Ver
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => handleDeleteAttachment(attachment.id)}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    );
-                  })}
                 </div>
-              )}
-
-              {/* Pending Files (new uploads) */}
-              {pendingFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Novos arquivos:</p>
-                  {pendingFiles.map((file, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 border border-border rounded-lg">
-                      <span className="text-[10px] font-medium text-muted-foreground border border-border rounded px-1 py-0.5 flex-shrink-0">
-                        {getFileTypeLabel(file.type)}
-                      </span>
-                      <span className="flex-1 text-sm truncate">{file.name}</span>
-                      <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => removePendingFile(index)}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  ))}
+                <div className="space-y-1.5">
+                  <Label>Categorias</Label>
+                  <MultiSelectPopover size="sm" options={categoryOptions} value={categoryIds} onChange={(v) => update({ category_ids: v })} placeholder="Todas" />
                 </div>
-              )}
-            </div>
+                <div className="space-y-1.5">
+                  <Label>Centros de custo</Label>
+                  <MultiSelectPopover size="sm" options={homeOptions} value={homeIds} onChange={(v) => update({ home_ids: v })} placeholder="Todos" searchable={false} />
+                </div>
+                {hasAnyFilter && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar filtros</Button>
+                )}
+              </PopoverContent>
+            </Popover>
+          </>
+        }
+      />
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSaving || isUploadingFiles}>
-                {(isSaving || isUploadingFiles) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {isUploadingFiles ? "Enviando arquivos..." : "Salvar"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {activeFilters > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {type && <FilterChip label={typeLabels[type as "REVENUE" | "EXPENSE"]?.label ?? type} onRemove={() => update({ type: null })} />}
+          {status && <FilterChip label={statusLabels[status as keyof typeof statusLabels]?.label ?? status} onRemove={() => update({ status: null })} />}
+          {paymentMethod && <FilterChip label={paymentMethodLabel(paymentMethod)} onRemove={() => update({ payment_method: null })} />}
+          {categoryIds.length > 0 && <FilterChip label={`${categoryIds.length} categoria${categoryIds.length > 1 ? "s" : ""}`} onRemove={() => update({ category_ids: null })} />}
+          {homeIds.length > 0 && <FilterChip label={`${homeIds.length} centro${homeIds.length > 1 ? "s" : ""}`} onRemove={() => update({ home_ids: null })} />}
+        </div>
+      )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Card className="py-3 sm:py-4 gap-0">
-          <CardContent className="px-3 sm:px-4">
-            <p className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-muted-foreground">Receitas</p>
-            <p className="mt-1 text-sm sm:text-lg font-semibold tabular-nums text-success">{formatCurrency(totalReceitas)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="py-3 sm:py-4 gap-0">
-          <CardContent className="px-3 sm:px-4">
-            <p className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-muted-foreground">Despesas</p>
-            <p className="mt-1 text-sm sm:text-lg font-semibold tabular-nums text-danger">{formatCurrency(totalDespesas)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="py-3 sm:py-4 gap-0">
-          <CardContent className="px-3 sm:px-4">
-            <p className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-muted-foreground">Saldo</p>
-            <p className={`mt-1 text-sm sm:text-lg font-semibold tabular-nums ${saldo >= 0 ? "text-success" : "text-danger"}`}>
-              {formatCurrency(saldo)}
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Receitas" tone="success" value={formatCurrency(summary.receitas)} loading={isLoading} hint={summary.receitas_pendentes > 0 ? `a receber ${formatCurrency(summary.receitas_pendentes)}` : undefined} />
+        <StatCard label="Despesas" tone="danger" value={formatCurrency(summary.despesas)} loading={isLoading} hint={summary.despesas_pendentes > 0 ? `a pagar ${formatCurrency(summary.despesas_pendentes)}` : undefined} />
+        <StatCard label="Saldo" tone={summary.saldo >= 0 ? "success" : "danger"} value={formatCurrency(summary.saldo)} loading={isLoading} />
+        <StatCard
+          label="Pendente"
+          tone={pendente > 0 ? "warning" : "muted"}
+          value={formatCurrency(pendente)}
+          loading={isLoading}
+          hint={summary.atrasados > 0 ? <span className="text-danger">{summary.atrasados} atrasado{summary.atrasados > 1 ? "s" : ""} · {formatCurrency(summary.atrasados_total)}</span> : undefined}
+          onClick={status !== "PENDING" ? () => update({ status: "PENDING" }) : undefined}
+        />
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
+      <ResponsiveList
+        rows={items}
+        columns={columns}
+        rowKey={(t) => t.id}
+        renderCard={renderCard}
+        isLoading={isLoading}
+        rowClassName={(t) => cn(t.status === "CANCELED" && "opacity-60", isOverdue(t.due_date, t.status) && "border-l-2 border-l-danger")}
+        emptyState={
+          hasAnyFilter ? (
+            <EmptyState icon={Search} title="Nenhum resultado para os filtros" description="Ajuste a busca ou limpe os filtros." action={<Button variant="outline" size="sm" onClick={clearFilters}>Limpar filtros</Button>} />
           ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden lg:block overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Centro de Custo</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Pagamento</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                      <TableHead className="w-[190px]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTransactions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                          {hasActiveFilters ? "Nenhum lançamento encontrado com os filtros aplicados." : "Nenhum lançamento registrado. Clique em \"Novo Lançamento\" para começar."}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredTransactions.map((t) => (
-                        <TableRow key={t.id} className={t.status === "CANCELED" ? "opacity-50" : ""}>
-                          <TableCell>{formatDate(t.date)}</TableCell>
-                          <TableCell>
-                            {t.due_date ? (
-                              <span className={
-                                t.status === "PENDING" && new Date(t.due_date) < new Date()
-                                  ? "text-danger font-medium"
-                                  : ""
-                              }>
-                                {formatDate(t.due_date)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={t.type === "REVENUE" ? "success" : "danger"}>
-                              {t.type === "REVENUE" ? "Receita" : "Despesa"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-medium max-w-[200px] truncate">
-                            <span className="flex items-center gap-1.5">
-                              {t.description || t.category_name || "-"}
-                              {t.attachment_count > 0 && (
-                                <span className="text-[10px] text-muted-foreground border border-border rounded px-1">anexo</span>
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell>{t.home_name}</TableCell>
-                          <TableCell>{t.category_name}</TableCell>
-                          <TableCell>{paymentMethodLabels[t.payment_method] || t.payment_method}</TableCell>
-                          <TableCell>
-                            <Badge variant={statusLabels[t.status]?.variant || "secondary"}>
-                              {statusLabels[t.status]?.label || t.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className={`text-right font-semibold tabular-nums ${t.type === "REVENUE" ? "text-success" : "text-danger"}`}>
-                            {t.type === "REVENUE" ? "+" : "-"} {formatCurrency(t.amount)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-0.5">
-                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleEdit(t)}>
-                                Editar
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => handleDuplicate(t)}>
-                                Duplicar
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
-                                Excluir
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="lg:hidden divide-y">
-                {filteredTransactions.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {hasActiveFilters ? "Nenhum lançamento encontrado com os filtros aplicados." : "Nenhum lançamento registrado"}
-                  </div>
-                ) : (
-                  filteredTransactions.map((t) => (
-                    <div key={t.id} className={`p-4 space-y-3 ${t.status === "CANCELED" ? "opacity-50" : ""}`}>
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={t.type === "REVENUE" ? "success" : "danger"}>
-                              {t.type === "REVENUE" ? "Receita" : "Despesa"}
-                            </Badge>
-                            <span className="font-medium flex items-center gap-1.5">
-                              {t.description || t.category_name}
-                              {t.attachment_count > 0 && (
-                                <span className="text-[10px] text-muted-foreground border border-border rounded px-1">anexo</span>
-                              )}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{t.home_name} • {t.category_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(t.date)}
-                            {t.due_date && (
-                              <span className={`ml-2 ${
-                                t.status === "PENDING" && new Date(t.due_date) < new Date()
-                                  ? "text-danger"
-                                  : ""
-                              }`}>
-                                • Venc: {formatDate(t.due_date)}
-                                {t.status === "PENDING" && new Date(t.due_date) < new Date() && " (Atrasado)"}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-semibold tabular-nums ${t.type === "REVENUE" ? "text-success" : "text-danger"}`}>
-                            {t.type === "REVENUE" ? "+" : "-"} {formatCurrency(t.amount)}
-                          </p>
-                          <Badge variant={statusLabels[t.status]?.variant || "secondary"} className="mt-1">
-                            {statusLabels[t.status]?.label || t.status}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-2 border-t">
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(t)}>
-                          Editar
-                        </Button>
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDuplicate(t)}>
-                          Duplicar
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            <EmptyState icon={Receipt} title={`Nenhum lançamento em ${formatMonthLabel(month)}`} description="Registre a primeira receita ou despesa deste mês." action={<Button size="sm" onClick={() => openCreate()}><Plus /> Novo lançamento</Button>} />
+          )
+        }
+        footer={total > 0 ? <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={(p) => update({ page: String(p) }, { keepPage: true })} /> : undefined}
+      />
     </div>
+  );
+}
+
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <Badge variant="secondary" className="h-6 gap-1 pr-1">
+      {label}
+      <button type="button" aria-label={`Remover filtro ${label}`} onClick={onRemove} className="rounded p-0.5 hover:bg-background/60">
+        <X className="size-3" />
+      </button>
+    </Badge>
   );
 }
