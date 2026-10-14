@@ -150,11 +150,11 @@ export default function RegistroPage() {
   const fetchData = async () => {
     try {
       const [transRes, homesRes, categoriesRes, employeesRes, companiesRes] = await Promise.all([
-        fetch("/api/transactions", { credentials: "include" }),
-        fetch("/api/homes", { credentials: "include" }),
-        fetch("/api/categories", { credentials: "include" }),
-        fetch("/api/employees", { credentials: "include" }),
-        fetch("/api/companies", { credentials: "include" }),
+        fetch("/app/api/transactions", { credentials: "include" }),
+        fetch("/app/api/homes", { credentials: "include" }),
+        fetch("/app/api/categories", { credentials: "include" }),
+        fetch("/app/api/employees", { credentials: "include" }),
+        fetch("/app/api/companies", { credentials: "include" }),
       ]);
 
       if (transRes.ok) setTransactions(await transRes.json());
@@ -210,7 +210,7 @@ export default function RegistroPage() {
       const formData = new FormData();
       formData.append("file", file);
       
-      await fetch(`/api/transactions/${transactionId}/attachments`, {
+      await fetch(`/app/api/transactions/${transactionId}/attachments`, {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -229,7 +229,7 @@ export default function RegistroPage() {
     setIsSaving(true);
 
     try {
-      const url = editingId ? `/api/transactions/${editingId}` : "/api/transactions";
+      const url = editingId ? `/app/api/transactions/${editingId}` : "/app/api/transactions";
       const method = editingId ? "PUT" : "POST";
 
       const isCardCredit = form.payment_method === "CARD" && cardType === "credit";
@@ -276,7 +276,7 @@ export default function RegistroPage() {
         // Create installment records (card credit)
         if (!editingId && numInstallments > 1) {
           for (let i = 1; i < numInstallments; i++) {
-            await fetch("/api/transactions", {
+            await fetch("/app/api/transactions", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -295,7 +295,7 @@ export default function RegistroPage() {
         if (!editingId && enableRepeat && numInstallments === 1) {
           const months = Math.min(Math.max(parseInt(repeatMonths) || 1, 1), 60);
           for (let i = 1; i <= months; i++) {
-            await fetch("/api/transactions", {
+            await fetch("/app/api/transactions", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -346,7 +346,7 @@ export default function RegistroPage() {
 
   const fetchAttachments = async (transactionId: number) => {
     try {
-      const res = await fetch(`/api/transactions/${transactionId}/attachments`, { credentials: "include" });
+      const res = await fetch(`/app/api/transactions/${transactionId}/attachments`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setExistingAttachments(data);
@@ -408,7 +408,7 @@ export default function RegistroPage() {
     if (!ok) return;
 
     try {
-      const res = await fetch(`/api/transactions/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/app/api/transactions/${id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         fetchData();
         toast({ title: "Lançamento excluído" });
@@ -436,7 +436,7 @@ export default function RegistroPage() {
     if (!name) return;
     setIsSavingCompany(true);
     try {
-      const res = await fetch("/api/companies", {
+      const res = await fetch("/app/api/companies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -491,7 +491,7 @@ export default function RegistroPage() {
     if (!ok) return;
 
     try {
-      const res = await fetch(`/api/attachments/${attachmentId}`, { 
+      const res = await fetch(`/app/api/attachments/${attachmentId}`, { 
         method: "DELETE", 
         credentials: "include" 
       });
@@ -505,7 +505,7 @@ export default function RegistroPage() {
   };
 
   const viewAttachment = async (attachment: Attachment) => {
-    window.open(`/api/attachments/${attachment.id}/download`, "_blank");
+    window.open(`/app/api/attachments/${attachment.id}/download`, "_blank");
   };
 
   const formatFileSize = (bytes: number) => {

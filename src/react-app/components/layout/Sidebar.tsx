@@ -62,7 +62,7 @@ export default function Sidebar() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/app/api/auth/logout", { method: "POST" });
     navigate("/");
   };
 

@@ -183,7 +183,7 @@ export default function FolhaPontoPage() {
 
   const fetchEmployees = async () => {
     try {
-      const res = await fetch("/api/employees", { credentials: "include" });
+      const res = await fetch("/app/api/employees", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setEmployees(data.filter((e: Employee) => e.is_active !== 0));
@@ -200,7 +200,7 @@ export default function FolhaPontoPage() {
       if (filterYear) params.append("year", filterYear.toString());
       if (filterEmployee) params.append("employee_id", filterEmployee);
       
-      const res = await fetch(`/api/timesheets?${params}`, { credentials: "include" });
+      const res = await fetch(`/app/api/timesheets?${params}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setTimesheets(data);
@@ -225,7 +225,7 @@ export default function FolhaPontoPage() {
     setIsSaving(true);
     
     try {
-      const res = await fetch("/api/timesheets", {
+      const res = await fetch("/app/api/timesheets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newForm),
@@ -254,7 +254,7 @@ export default function FolhaPontoPage() {
 
   const handleOpenDetail = async (timesheet: Timesheet) => {
     try {
-      const res = await fetch(`/api/timesheets/${timesheet.id}`, { credentials: "include" });
+      const res = await fetch(`/app/api/timesheets/${timesheet.id}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setSelectedTimesheet(data);
@@ -547,7 +547,7 @@ export default function FolhaPontoPage() {
       const totalOvertime = sumTimes(entries.map(e => e.overtime));
       
       // Save entries
-      await fetch(`/api/timesheets/${selectedTimesheet.id}/entries`, {
+      await fetch(`/app/api/timesheets/${selectedTimesheet.id}/entries`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entries }),
@@ -555,7 +555,7 @@ export default function FolhaPontoPage() {
       });
       
       // Update timesheet totals
-      await fetch(`/api/timesheets/${selectedTimesheet.id}`, {
+      await fetch(`/app/api/timesheets/${selectedTimesheet.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -600,7 +600,7 @@ export default function FolhaPontoPage() {
       const totalExpected = sumTimes(entries.map(e => e.hours_expected));
       const totalOvertime = sumTimes(entries.map(e => e.overtime));
       
-      await fetch(`/api/timesheets/${selectedTimesheet.id}`, {
+      await fetch(`/app/api/timesheets/${selectedTimesheet.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -630,7 +630,7 @@ export default function FolhaPontoPage() {
     if (!ok) return;
     
     try {
-      const res = await fetch(`/api/timesheets/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/app/api/timesheets/${id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         fetchTimesheets();
         toast({ title: "Folha de ponto excluída" });

@@ -14,14 +14,14 @@ export default function DashboardLayout() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch("/api/auth/me", { credentials: "include" });
+        const res = await fetch("/app/api/auth/me", { credentials: "include" });
         if (!res.ok) {
           navigate("/", { replace: true });
           return;
         }
 
         // Check subscription status
-        const subRes = await fetch("/api/tenant/subscription", { credentials: "include" });
+        const subRes = await fetch("/app/api/tenant/subscription", { credentials: "include" });
         if (subRes.ok) {
           const data = await subRes.json();
           const now = new Date();

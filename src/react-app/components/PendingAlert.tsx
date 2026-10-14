@@ -29,7 +29,7 @@ export default function PendingAlert() {
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
 
-    fetch(`/api/transactions?due_date_start=${start}&due_date_end=${end}&status=PENDING`, {
+    fetch(`/app/api/transactions?due_date_start=${start}&due_date_end=${end}&status=PENDING`, {
       credentials: "include",
     })
       .then((r) => r.json())

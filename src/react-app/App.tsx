@@ -21,7 +21,7 @@ import AjudaPage from "@/react-app/pages/Ajuda";
 
 export default function App() {
   return (
-    <Router>
+    <Router basename="/app">
       <Toaster />
       <AlertDialog />
       <ConfirmDialog />

@@ -4,6 +4,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { setCookie, getCookie, deleteCookie } from "hono/cookie";
 import pool from "./db.js";
+import { hashPassword, verifyPassword } from "./password.js";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -83,11 +84,17 @@ app.post("/api/auth/login", async (c) => {
   const { rows } = await pool.query(
     `SELECT u.*, t.subscription_status FROM users u
      JOIN tenants t ON u.tenant_id = t.id
-     WHERE u.username = $1 AND u.password = $2 AND u.is_active = true AND t.is_active = true`,
-    [username, password]
+     WHERE u.username = $1 AND u.is_active = true AND t.is_active = true`,
+    [username]
   );
   const user = rows[0];
   if (user) {
+    const { valid, legacy } = await verifyPassword(password, user.password);
+    if (!valid) return c.json({ error: "Usuário ou senha inválidos" }, 401);
+    if (legacy) {
+      const newHash = await hashPassword(password);
+      await pool.query("UPDATE users SET password = $1 WHERE id = $2", [newHash, user.id]);
+    }
     setCookie(c, SESSION_COOKIE, `user_${user.id}`, {
       httpOnly: true,
       path: "/",
@@ -188,11 +195,17 @@ app.post("/api/auth/verify-code", async (c) => {
 app.post("/api/admin/login", async (c) => {
   const { email, password } = await c.req.json();
   const { rows } = await pool.query(
-    "SELECT * FROM admins WHERE email = $1 AND password = $2 AND is_active = true",
-    [email, password]
+    "SELECT * FROM admins WHERE email = $1 AND is_active = true",
+    [email]
   );
   const admin = rows[0];
   if (admin) {
+    const { valid, legacy } = await verifyPassword(password, admin.password);
+    if (!valid) return c.json({ error: "Email ou senha inválidos" }, 401);
+    if (legacy) {
+      const newHash = await hashPassword(password);
+      await pool.query("UPDATE admins SET password = $1 WHERE id = $2", [newHash, admin.id]);
+    }
     setCookie(c, ADMIN_SESSION_COOKIE, `admin_${admin.id}`, {
       httpOnly: true,
       path: "/",
@@ -250,7 +263,7 @@ app.put("/api/admin/tenants/:id", adminAuthMiddleware, async (c) => {
 
 app.get("/api/admin/users", adminAuthMiddleware, async (c) => {
   const { rows } = await pool.query(
-    `SELECT u.id, u.name, u.username, u.password, u.is_active, u.tenant_id, u.created_at, t.name as tenant_name
+    `SELECT u.id, u.name, u.username, u.is_active, u.tenant_id, u.created_at, t.name as tenant_name
      FROM users u LEFT JOIN tenants t ON u.tenant_id = t.id ORDER BY u.id`
   );
   return c.json(rows);
@@ -266,7 +279,7 @@ app.post("/api/admin/users", adminAuthMiddleware, async (c) => {
   if (exist[0]) return c.json({ error: "Este login já está em uso" }, 400);
   const { rows } = await pool.query(
     `INSERT INTO users (name, username, password, is_active, tenant_id) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [name, username, password, is_active !== false, tenant_id]
+    [name, username, await hashPassword(password), is_active !== false, tenant_id]
   );
   return c.json({ success: true, id: rows[0].id }, 201);
 });
@@ -281,7 +294,7 @@ app.put("/api/admin/users/:id", adminAuthMiddleware, async (c) => {
     if (password.length < 6) return c.json({ error: "A senha deve ter no mínimo 6 caracteres" }, 400);
     await pool.query(
       `UPDATE users SET name=$1, username=$2, password=$3, tenant_id=$4, is_active=$5, updated_at=NOW() WHERE id=$6`,
-      [name, username, password, tenant_id, is_active, id]
+      [name, username, await hashPassword(password), tenant_id, is_active, id]
     );
   } else {
     await pool.query(
@@ -330,7 +343,7 @@ app.post("/api/auth/register", async (c) => {
 
     await pool.query(
       `INSERT INTO users (name, username, password, is_active, tenant_id) VALUES ($1, $2, $3, $4, $5)`,
-      [admin_name, username, password, true, tenantId]
+      [admin_name, username, await hashPassword(password), true, tenantId]
     );
 
     return c.json({ success: true, message: "Cadastro realizado com sucesso! Faça login para acessar o sistema." }, 201);
@@ -477,7 +490,7 @@ app.post("/api/users", authMiddleware, async (c) => {
 
   const { rows } = await pool.query(
     `INSERT INTO users (name, username, password, tenant_id) VALUES ($1, $2, $3, $4) RETURNING id`,
-    [name, username, password, tenantId]
+    [name, username, await hashPassword(password), tenantId]
   );
   return c.json({ id: rows[0].id, success: true }, 201);
 });
@@ -497,7 +510,7 @@ app.put("/api/users/:id", authMiddleware, async (c) => {
   if (password) {
     await pool.query(
       `UPDATE users SET name = $1, username = $2, password = $3, is_active = $4, updated_at = NOW() WHERE id = $5 AND tenant_id = $6`,
-      [name, username, password, is_active !== false, id, tenantId]
+      [name, username, await hashPassword(password), is_active !== false, id, tenantId]
     );
   } else {
     await pool.query(

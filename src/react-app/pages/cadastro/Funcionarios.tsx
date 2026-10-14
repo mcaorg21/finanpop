@@ -191,7 +191,7 @@ export default function FuncionariosPage() {
 
   const fetchFuncionarios = async () => {
     try {
-      const res = await fetch("/api/employees", { credentials: "include" });
+      const res = await fetch("/app/api/employees", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setFuncionarios(data);
@@ -205,7 +205,7 @@ export default function FuncionariosPage() {
 
   const checkHomes = async () => {
     try {
-      const res = await fetch("/api/homes", { credentials: "include" });
+      const res = await fetch("/app/api/homes", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         const hasHomesData = data.length > 0;
@@ -261,7 +261,7 @@ export default function FuncionariosPage() {
     setIsSaving(true);
 
     try {
-      const url = editingId ? `/api/employees/${editingId}` : "/api/employees";
+      const url = editingId ? `/app/api/employees/${editingId}` : "/app/api/employees";
       const method = editingId ? "PUT" : "POST";
 
       const payload = {
@@ -369,7 +369,7 @@ export default function FuncionariosPage() {
     if (!ok) return;
 
     try {
-      const res = await fetch(`/api/employees/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/app/api/employees/${id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         fetchFuncionarios();
         toast({ title: "Funcionário excluído" });
@@ -394,7 +394,7 @@ export default function FuncionariosPage() {
   const fetchPixKeys = async (employeeId: number) => {
     setIsLoadingPix(true);
     try {
-      const res = await fetch(`/api/employees/${employeeId}/pix-keys`, { credentials: "include" });
+      const res = await fetch(`/app/api/employees/${employeeId}/pix-keys`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setPixKeys(data);
@@ -421,8 +421,8 @@ export default function FuncionariosPage() {
     setIsSavingPix(true);
     try {
       const url = editingPixId 
-        ? `/api/pix-keys/${editingPixId}`
-        : `/api/employees/${selectedEmployee.id}/pix-keys`;
+        ? `/app/api/pix-keys/${editingPixId}`
+        : `/app/api/employees/${selectedEmployee.id}/pix-keys`;
       const method = editingPixId ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -464,7 +464,7 @@ export default function FuncionariosPage() {
     if (!ok || !selectedEmployee) return;
 
     try {
-      const res = await fetch(`/api/pix-keys/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/app/api/pix-keys/${id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         fetchPixKeys(selectedEmployee.id);
         toast({ title: "Chave PIX excluída" });
@@ -520,7 +520,7 @@ export default function FuncionariosPage() {
               <Button variant="outline" onClick={() => setShowWarningModal(false)}>
                 Entendi
               </Button>
-              <Button onClick={() => window.location.href = "/cadastro/domicilios"}>
+              <Button onClick={() => window.location.href = "/app/cadastro/domicilios"}>
                 Ir para Centro de Custo
               </Button>
             </div>

@@ -47,7 +47,7 @@ export default function DomiciliosPage() {
 
   const fetchDomicilios = async () => {
     try {
-      const res = await fetch("/api/homes", { credentials: "include" });
+      const res = await fetch("/app/api/homes", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setDomicilios(data);
@@ -138,7 +138,7 @@ export default function DomiciliosPage() {
     setIsSaving(true);
 
     try {
-      const url = editingId ? `/api/homes/${editingId}` : "/api/homes";
+      const url = editingId ? `/app/api/homes/${editingId}` : "/app/api/homes";
       const method = editingId ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -198,7 +198,7 @@ export default function DomiciliosPage() {
     if (!confirm("Tem certeza que deseja excluir este centro de custo?")) return;
 
     try {
-      const res = await fetch(`/api/homes/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/app/api/homes/${id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         fetchDomicilios();
         toast({

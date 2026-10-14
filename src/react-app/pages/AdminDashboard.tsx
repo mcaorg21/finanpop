@@ -28,7 +28,6 @@ interface User {
   id: number;
   name: string;
   username: string;
-  password: string;
   is_active: boolean;
   tenant_id: number;
   tenant_name: string;
@@ -94,7 +93,7 @@ export default function AdminDashboard() {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch("/api/admin/me", { credentials: "include" });
+      const res = await fetch("/app/api/admin/me", { credentials: "include" });
       if (!res.ok) navigate("/admin");
     } catch {
       navigate("/admin");
@@ -104,7 +103,7 @@ export default function AdminDashboard() {
   const fetchTenants = async () => {
     setLoadingTenants(true);
     try {
-      const res = await fetch("/api/admin/tenants", { credentials: "include" });
+      const res = await fetch("/app/api/admin/tenants", { credentials: "include" });
       if (res.ok) setTenants(await res.json());
     } catch {
       toast({ title: "Erro ao carregar licenças", variant: "destructive" });
@@ -116,7 +115,7 @@ export default function AdminDashboard() {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await fetch("/api/admin/users", { credentials: "include" });
+      const res = await fetch("/app/api/admin/users", { credentials: "include" });
       if (res.ok) setUsers(await res.json());
     } catch {
       toast({ title: "Erro ao carregar usuários", variant: "destructive" });
@@ -126,7 +125,7 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
+    await fetch("/app/api/admin/logout", { method: "POST", credentials: "include" });
     navigate("/admin");
   };
 
@@ -148,7 +147,7 @@ export default function AdminDashboard() {
       } else {
         body.subscription_ends_at = null;
       }
-      const res = await fetch("/api/admin/tenants", {
+      const res = await fetch("/app/api/admin/tenants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -186,7 +185,7 @@ export default function AdminDashboard() {
       if (formData.subscription_ends_at) {
         subscriptionEndsAt = new Date(formData.subscription_ends_at + "T23:59:59").toISOString();
       }
-      const res = await fetch(`/api/admin/tenants/${selectedTenant.id}`, {
+      const res = await fetch(`/app/api/admin/tenants/${selectedTenant.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -241,7 +240,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    const url = editingUser ? `/api/admin/users/${editingUser.id}` : "/api/admin/users";
+    const url = editingUser ? `/app/api/admin/users/${editingUser.id}` : "/app/api/admin/users";
     const method = editingUser ? "PUT" : "POST";
 
     try {
@@ -441,7 +440,6 @@ export default function AdminDashboard() {
                       <TableHead>ID</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Login</TableHead>
-                      <TableHead>Senha</TableHead>
                       <TableHead>Licença</TableHead>
                       <TableHead>Ativo</TableHead>
                       <TableHead>Cadastro</TableHead>
@@ -454,7 +452,6 @@ export default function AdminDashboard() {
                         <TableCell className="text-muted-foreground">{user.id}</TableCell>
                         <TableCell className="font-medium">{user.name}</TableCell>
                         <TableCell className="font-mono text-sm">{user.username}</TableCell>
-                        <TableCell className="font-mono text-sm text-muted-foreground">{user.password}</TableCell>
                         <TableCell>
                           <span className="text-sm">{user.tenant_name || `#${user.tenant_id}`}</span>
                         </TableCell>

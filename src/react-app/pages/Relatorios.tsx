@@ -129,10 +129,10 @@ export default function RelatoriosPage() {
     const fetchOptions = async () => {
       try {
         const [homesRes, employeesRes, companiesRes, categoriesRes] = await Promise.all([
-          fetch("/api/homes", { credentials: "include" }),
-          fetch("/api/employees", { credentials: "include" }),
-          fetch("/api/companies", { credentials: "include" }),
-          fetch("/api/categories", { credentials: "include" }),
+          fetch("/app/api/homes", { credentials: "include" }),
+          fetch("/app/api/employees", { credentials: "include" }),
+          fetch("/app/api/companies", { credentials: "include" }),
+          fetch("/app/api/categories", { credentials: "include" }),
         ]);
         
         if (homesRes.ok) setHomes(await homesRes.json());
@@ -170,8 +170,8 @@ export default function RelatoriosPage() {
       if (status && status !== "all") params.append("status", status);
 
       const [reportRes, txRes] = await Promise.all([
-        fetch(`/api/reports?${params.toString()}`, { credentials: "include" }),
-        fetch(`/api/transactions?${params.toString()}`, { credentials: "include" }),
+        fetch(`/app/api/reports?${params.toString()}`, { credentials: "include" }),
+        fetch(`/app/api/transactions?${params.toString()}`, { credentials: "include" }),
       ]);
       if (reportRes.ok) {
         const data = await reportRes.json();
@@ -384,7 +384,7 @@ export default function RelatoriosPage() {
     if (status) params.append("status", status);
 
     try {
-      const res = await fetch(`/api/transactions?${params.toString()}`, { credentials: "include" });
+      const res = await fetch(`/app/api/transactions?${params.toString()}`, { credentials: "include" });
       if (res.ok) {
         const transactions = await res.json();
         
@@ -455,7 +455,7 @@ export default function RelatoriosPage() {
     if (status) params.append("status", status);
 
     try {
-      const res = await fetch(`/api/transactions?${params.toString()}`, { credentials: "include" });
+      const res = await fetch(`/app/api/transactions?${params.toString()}`, { credentials: "include" });
       if (res.ok) {
         const transactions = await res.json();
         

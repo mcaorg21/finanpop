@@ -6,6 +6,7 @@
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",
     "@hono/node-server": "^1.13.8",
+    "bcrypt": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.25.1",
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "22.14.1",
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.11.10",

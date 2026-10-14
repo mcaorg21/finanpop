@@ -19,7 +19,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/stats", { credentials: "include" });
+        const res = await fetch("/app/api/stats", { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           setStats(data);

@@ -44,7 +44,7 @@ export default function CategoriasPage() {
 
   const fetchCategorias = async () => {
     try {
-      const res = await fetch("/api/categories", { credentials: "include" });
+      const res = await fetch("/app/api/categories", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setCategorias(data);
@@ -58,7 +58,7 @@ export default function CategoriasPage() {
 
   const checkHomes = async () => {
     try {
-      const res = await fetch("/api/homes", { credentials: "include" });
+      const res = await fetch("/app/api/homes", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         const hasHomesData = data.length > 0;
@@ -141,7 +141,7 @@ export default function CategoriasPage() {
     setIsSaving(true);
 
     try {
-      const url = editingId ? `/api/categories/${editingId}` : "/api/categories";
+      const url = editingId ? `/app/api/categories/${editingId}` : "/app/api/categories";
       const method = editingId ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -192,7 +192,7 @@ export default function CategoriasPage() {
       // Delete children first if any
       if (hasChildren) {
         for (const child of childrenByParent[id]) {
-          const childRes = await fetch(`/api/categories/${child.id}`, { method: "DELETE", credentials: "include" });
+          const childRes = await fetch(`/app/api/categories/${child.id}`, { method: "DELETE", credentials: "include" });
           if (!childRes.ok) {
             const errorData = await childRes.json();
             alert(errorData.error || "Erro ao excluir subcategoria");
@@ -201,7 +201,7 @@ export default function CategoriasPage() {
         }
       }
       
-      const res = await fetch(`/api/categories/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/app/api/categories/${id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         fetchCategorias();
       } else {
@@ -277,7 +277,7 @@ export default function CategoriasPage() {
     
     try {
       // Create parent category first
-      const parentRes = await fetch("/api/categories", {
+      const parentRes = await fetch("/app/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -298,7 +298,7 @@ export default function CategoriasPage() {
 
       // Create all subcategories
       for (const subName of subcategories) {
-        await fetch("/api/categories", {
+        await fetch("/app/api/categories", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -370,7 +370,7 @@ export default function CategoriasPage() {
               <Button variant="outline" onClick={() => setShowWarningModal(false)}>
                 Entendi
               </Button>
-              <Button onClick={() => window.location.href = "/cadastro/domicilios"}>
+              <Button onClick={() => window.location.href = "/app/cadastro/domicilios"}>
                 Ir para Centro de Custo
               </Button>
             </div>

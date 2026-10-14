@@ -93,7 +93,7 @@ export default function EmpresasPage() {
 
   const fetchEmpresas = async () => {
     try {
-      const res = await fetch("/api/companies", { credentials: "include" });
+      const res = await fetch("/app/api/companies", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setEmpresas(data);
@@ -107,7 +107,7 @@ export default function EmpresasPage() {
 
   const checkHomes = async () => {
     try {
-      const res = await fetch("/api/homes", { credentials: "include" });
+      const res = await fetch("/app/api/homes", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         const hasHomesData = data.length > 0;
@@ -162,7 +162,7 @@ export default function EmpresasPage() {
     setIsSaving(true);
 
     try {
-      const url = editingId ? `/api/companies/${editingId}` : "/api/companies";
+      const url = editingId ? `/app/api/companies/${editingId}` : "/app/api/companies";
       const method = editingId ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -211,7 +211,7 @@ export default function EmpresasPage() {
     if (!ok) return;
 
     try {
-      const res = await fetch(`/api/companies/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/app/api/companies/${id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         fetchEmpresas();
         toast({ title: "Empresa excluída" });
@@ -273,7 +273,7 @@ export default function EmpresasPage() {
               <Button variant="outline" onClick={() => setShowWarningModal(false)}>
                 Entendi
               </Button>
-              <Button onClick={() => window.location.href = "/cadastro/domicilios"}>
+              <Button onClick={() => window.location.href = "/app/cadastro/domicilios"}>
                 Ir para Centro de Custo
               </Button>
             </div>

@@ -67,7 +67,7 @@ export default function ConfiguracoesPage() {
 
   const fetchCurrentUser = async () => {
     try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
+      const res = await fetch("/app/api/auth/me", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setCurrentUser(data);
@@ -79,7 +79,7 @@ export default function ConfiguracoesPage() {
 
   const fetchSubscription = async () => {
     try {
-      const res = await fetch("/api/tenant/subscription", { credentials: "include" });
+      const res = await fetch("/app/api/tenant/subscription", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setSubscription(data);
@@ -93,7 +93,7 @@ export default function ConfiguracoesPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("/api/users", { credentials: "include" });
+      const res = await fetch("/app/api/users", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
@@ -106,14 +106,14 @@ export default function ConfiguracoesPage() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    await fetch("/app/api/auth/logout", { method: "POST", credentials: "include" });
     navigate("/");
   };
 
   const handleUpgradeSubscription = async () => {
     setCreatingPaymentLink(true);
     try {
-      const res = await fetch("/api/tenant/create-payment-link", {
+      const res = await fetch("/app/api/tenant/create-payment-link", {
         method: "POST",
         credentials: "include",
       });
@@ -167,7 +167,7 @@ export default function ConfiguracoesPage() {
         is_active: userForm.is_active,
       };
 
-      const url = editingUser ? `/api/users/${editingUser.id}` : "/api/users";
+      const url = editingUser ? `/app/api/users/${editingUser.id}` : "/app/api/users";
       const method = editingUser ? "PUT" : "POST";
 
       // For new users, password is required
@@ -209,7 +209,7 @@ export default function ConfiguracoesPage() {
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/users/${user.id}`, {
+      const res = await fetch(`/app/api/users/${user.id}`, {
         method: "DELETE",
         credentials: "include",
       });

@@ -58,7 +58,7 @@ export default function TopNav() {
   useEffect(() => {
     const fetchSubscription = async () => {
       try {
-        const response = await fetch("/api/tenant/subscription");
+        const response = await fetch("/app/api/tenant/subscription");
         if (response.ok) {
           const data = await response.json();
           setSubscriptionInfo(data);
@@ -86,7 +86,7 @@ export default function TopNav() {
   }, []);
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/app/api/auth/logout", { method: "POST" });
     navigate("/");
   };
 

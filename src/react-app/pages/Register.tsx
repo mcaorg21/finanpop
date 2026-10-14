@@ -143,7 +143,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch("/app/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -219,7 +219,7 @@ export default function RegisterPage() {
 
     setSendingCode(true);
     try {
-      const res = await fetch("/api/auth/send-code", {
+      const res = await fetch("/app/api/auth/send-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: formData.email }),
@@ -263,7 +263,7 @@ export default function RegisterPage() {
 
     setVerifyingCode(true);
     try {
-      const res = await fetch("/api/auth/verify-code", {
+      const res = await fetch("/app/api/auth/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
