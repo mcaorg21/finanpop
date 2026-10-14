@@ -1,220 +1,108 @@
-import { NavLink, useNavigate } from "react-router";
-import {
-  Home,
-  Users,
-  Building2,
-  Building,
-  Tag,
-  Receipt,
-  BarChart3,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  FolderOpen,
-  Clock,
-  DollarSign,
-  HelpCircle,
-} from "lucide-react";
-import { Button } from "@/react-app/components/ui/button";
-import { cn } from "@/react-app/lib/utils";
-import { useState } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/react-app/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import { NavLink } from "react-router";
+import { LogOut, Plus } from "lucide-react";
 
-const navItems = [
-  { icon: Home, label: "Início", path: "/dashboard" },
-  {
-    icon: FolderOpen,
-    label: "Cadastros",
-    key: "cadastros",
-    items: [
-      { icon: Building2, label: "Centro de Custo", path: "/cadastro/domicilios" },
-      { icon: Users, label: "Funcionários", path: "/cadastro/funcionarios" },
-      { icon: Building, label: "Fornecedores", path: "/cadastro/empresas" },
-      { icon: Tag, label: "Categorias", path: "/cadastro/categorias" },
-    ],
-  },
-  {
-    icon: Receipt,
-    label: "Registros",
-    key: "registros",
-    items: [
-      { icon: DollarSign, label: "Receitas e Despesas", path: "/registro" },
-      { icon: Clock, label: "Folha de Ponto", path: "/folha-ponto" },
-    ],
-  },
-  { icon: BarChart3, label: "Relatórios", path: "/relatorios" },
-  { icon: Settings, label: "Configurações", path: "/configuracoes" },
-  { icon: HelpCircle, label: "Ajuda", path: "/ajuda" },
-];
+import { cn } from "@/react-app/lib/utils";
+import { initials } from "@/react-app/lib/format";
+import { Button } from "@/react-app/components/ui/button";
+import { Badge } from "@/react-app/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/react-app/components/ui/avatar";
+import { useSession, selectTrialDaysRemaining, trialBadgeText } from "@/react-app/hooks/use-session";
+import { useTransactionSheet } from "@/react-app/hooks/use-transaction-sheet";
+import { LOGO_SRC, NAV_CADASTROS, NAV_EQUIPE, NAV_FOOTER, NAV_MAIN, type NavItem } from "./nav";
+
+const linkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+    isActive
+      ? "bg-muted font-medium text-foreground"
+      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+  );
+
+function NavList({ items }: { items: NavItem[] }) {
+  return (
+    <ul className="space-y-0.5">
+      {items.map(({ label, to, icon: Icon }) => (
+        <li key={to}>
+          <NavLink to={to} className={linkClass}>
+            <Icon className="size-4 shrink-0" />
+            <span className="truncate">{label}</span>
+          </NavLink>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <p className="px-3 pb-1 pt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      {children}
+    </p>
+  );
+}
 
 export default function Sidebar() {
-  const navigate = useNavigate();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
-    cadastros: true,
-    registros: true,
-  });
+  const user = useSession((s) => s.user);
+  const subscription = useSession((s) => s.subscription);
+  const logout = useSession((s) => s.logout);
+  const trialDays = useSession(selectTrialDaysRemaining);
+  const openCreate = useTransactionSheet((s) => s.openCreate);
 
-  const toggleMenu = (key: string) => {
-    setOpenMenus(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  return (
+    <aside className="fixed inset-y-0 left-0 z-nav hidden w-64 flex-col border-r border-border bg-card lg:flex">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-5">
+        <img src={LOGO_SRC} alt="" className="size-8 object-contain" />
+        <span className="font-semibold tracking-tight">FinanPOP</span>
+      </div>
 
-  const handleLogout = async () => {
-    await fetch("/app/api/auth/logout", { method: "POST" });
-    navigate("/");
-  };
+      <div className="px-4 pt-4">
+        <Button type="button" size="lg" className="w-full" onClick={() => openCreate()}>
+          <Plus />
+          Novo lançamento
+        </Button>
+      </div>
 
-  const NavContent = ({ showLogo = true }: { showLogo?: boolean }) => (
-    <div className="flex flex-col h-full">
-      {/* Logo - only show on desktop */}
-      {showLogo && (
-        <div className="p-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <img
-              src={`${import.meta.env.BASE_URL}logo-secgo.png`}
-              alt="FinanPOP"
-              className="w-10 h-10 object-contain"
-            />
-            <div>
-              <h1 className="font-bold text-sidebar-foreground">FinanPOP</h1>
-              <p className="text-xs text-muted-foreground">Hub Controle</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {navItems.map((item, index) => {
-          if ("items" in item && "key" in item) {
-            const menuKey = item.key as string;
-            const isOpen = openMenus[menuKey] ?? false;
-            return (
-              <Collapsible key={index} open={isOpen} onOpenChange={() => toggleMenu(menuKey)}>
-                <CollapsibleTrigger asChild>
-                  <button
-                    className={cn(
-                      "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                      "text-sidebar-foreground hover:bg-sidebar-accent"
-                    )}
-                  >
-                    <span className="flex items-center gap-3">
-                      <item.icon className="w-5 h-5" />
-                      {item.label}
-                    </span>
-                    <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pl-4 space-y-1 mt-1">
-                  {item.items!.map((subItem) => (
-                    <NavLink
-                      key={subItem.path}
-                      to={subItem.path}
-                      onClick={() => setMobileOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                          isActive
-                            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent"
-                        )
-                      }
-                    >
-                      <subItem.icon className="w-4 h-4" />
-                      {subItem.label}
-                    </NavLink>
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          }
-
-          if ("path" in item) {
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent"
-                  )
-                }
-              >
-                <item.icon className="w-5 h-5" />
-                {item.label}
-              </NavLink>
-            );
-          }
-
-          return null;
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-3">
+        <NavList items={NAV_MAIN} />
+        <SectionLabel>Cadastros</SectionLabel>
+        <NavList items={NAV_CADASTROS} />
+        <SectionLabel>Equipe</SectionLabel>
+        <NavList items={NAV_EQUIPE} />
       </nav>
 
-      {/* Logout */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="border-t border-border p-3">
+        <div className="flex items-center gap-3 px-2 py-2">
+          <Avatar className="size-9">
+            <AvatarFallback className="text-xs">{initials(user?.name)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{user?.name ?? "—"}</p>
+            <p className="truncate text-xs text-muted-foreground">{subscription?.name ?? user?.username ?? ""}</p>
+          </div>
+          {subscription?.subscription_plan && (
+            <Badge variant="outline" className="shrink-0">{subscription.subscription_plan}</Badge>
+          )}
+        </div>
+
+        {trialDays !== null && (
+          <NavLink to="/configuracoes" className="block px-2 pb-2">
+            <Badge variant={trialDays < 7 ? "destructive" : "secondary"} className="w-full justify-center">
+              {trialBadgeText(trialDays)}
+            </Badge>
+          </NavLink>
+        )}
+
+        <NavList items={NAV_FOOTER} />
         <Button
+          type="button"
           variant="ghost"
-          className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          onClick={handleLogout}
+          className="mt-0.5 w-full justify-start gap-3 px-3 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => logout()}
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="size-4" />
           Sair
         </Button>
       </div>
-    </div>
-  );
-
-  return (
-    <>
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <img
-              src={`${import.meta.env.BASE_URL}logo-secgo.png`}
-              alt="FinanPOP"
-              className="w-8 h-8 object-contain"
-            />
-            <span className="font-bold text-sidebar-foreground">FinanPOP</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* Mobile Overlay */}
-      {mobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* Mobile Sidebar */}
-      <aside
-        className={cn(
-          "lg:hidden fixed top-[65px] left-0 bottom-0 z-50 w-72 bg-sidebar border-r border-sidebar-border transform transition-transform duration-300",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <NavContent showLogo={false} />
-      </aside>
-
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:block fixed top-0 left-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border">
-        <NavContent />
-      </aside>
-    </>
+    </aside>
   );
 }

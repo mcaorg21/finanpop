@@ -5,7 +5,7 @@ import LoginPage from "@/react-app/pages/Login";
 import RegisterPage from "@/react-app/pages/Register";
 import AdminLoginPage from "@/react-app/pages/AdminLogin";
 import AdminDashboard from "@/react-app/pages/AdminDashboard";
-import DashboardLayout from "@/react-app/components/layout/DashboardLayout";
+import AppShell from "@/react-app/components/layout/AppShell";
 import { Toaster } from "@/react-app/components/ui/toaster";
 import { AlertDialog, ConfirmDialog } from "@/react-app/hooks/use-alert";
 import DashboardPage from "@/react-app/pages/Dashboard";
@@ -32,7 +32,7 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/admin" element={<AdminLoginPage />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
-      <Route element={<DashboardLayout />}>
+      <Route element={<AppShell />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/cadastro/domicilios" element={<DomiciliosPage />} />
         <Route path="/cadastro/funcionarios" element={<FuncionariosPage />} />

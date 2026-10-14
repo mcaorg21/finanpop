@@ -1,11 +1,26 @@
 import { create } from 'zustand';
 import { AlertCircle, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
+import {
+  AlertDialog as AlertDialogRoot,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from '@/react-app/components/ui/alert-dialog';
+import { cn } from '@/react-app/lib/utils';
+
+type AlertType = 'info' | 'success' | 'error' | 'warning';
+
 interface AlertState {
   isOpen: boolean;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'error' | 'warning';
+  type: AlertType;
   onClose?: () => void;
 }
 
@@ -15,6 +30,7 @@ interface ConfirmState {
   message: string;
   confirmText?: string;
   cancelText?: string;
+  variant?: 'default' | 'destructive';
   onConfirm?: () => void;
   onCancel?: () => void;
 }
@@ -30,13 +46,17 @@ interface ConfirmStore extends ConfirmState {
   resolvePromise?: (value: boolean) => void;
 }
 
-export const useAlertStore = create<AlertStore>((set) => ({
+export const useAlertStore = create<AlertStore>((set, get) => ({
   isOpen: false,
   title: '',
   message: '',
   type: 'info',
   showAlert: (config) => set({ ...config, isOpen: true }),
-  hideAlert: () => set({ isOpen: false }),
+  hideAlert: () => {
+    const { onClose } = get();
+    set({ isOpen: false, onClose: undefined });
+    onClose?.();
+  },
 }));
 
 export const useConfirmStore = create<ConfirmStore>((set, get) => ({
@@ -45,10 +65,16 @@ export const useConfirmStore = create<ConfirmStore>((set, get) => ({
   message: '',
   confirmText: 'Confirmar',
   cancelText: 'Cancelar',
+  variant: 'default',
   showConfirm: (config) => {
     return new Promise<boolean>((resolve) => {
-      set({ 
-        ...config, 
+      set({
+        confirmText: 'Confirmar',
+        cancelText: 'Cancelar',
+        variant: 'default',
+        onConfirm: undefined,
+        onCancel: undefined,
+        ...config,
         isOpen: true,
         resolvePromise: resolve,
       });
@@ -68,7 +94,7 @@ export const useAlert = () => {
   const { showConfirm } = useConfirmStore();
 
   return {
-    alert: (message: string, title = 'Aviso', type = 'info' as const) => {
+    alert: (message: string, title = 'Aviso', type: AlertType = 'info') => {
       showAlert({ title, message, type });
     },
     success: (message: string, title = 'Sucesso') => {
@@ -80,96 +106,79 @@ export const useAlert = () => {
     warning: (message: string, title = 'Atenção') => {
       showAlert({ title, message, type: 'warning' });
     },
-    confirm: (config: { title: string; message: string; confirmText?: string; cancelText?: string }) => {
+    confirm: (config: {
+      title: string;
+      message: string;
+      confirmText?: string;
+      cancelText?: string;
+      variant?: 'default' | 'destructive';
+    }) => {
       return showConfirm(config);
     },
   };
 };
 
+const alertIcons = {
+  info: AlertCircle,
+  success: CheckCircle,
+  error: XCircle,
+  warning: AlertTriangle,
+} as const;
+
+const alertTone: Record<AlertType, { bg: string; icon: string }> = {
+  info: { bg: 'bg-muted', icon: 'text-foreground' },
+  success: { bg: 'bg-success/10', icon: 'text-success' },
+  error: { bg: 'bg-danger/10', icon: 'text-danger' },
+  warning: { bg: 'bg-warning/10', icon: 'text-warning' },
+};
+
 export function AlertDialog() {
   const { isOpen, title, message, type, hideAlert } = useAlertStore();
-
-  if (!isOpen) return null;
-
-  const icons = {
-    info: AlertCircle,
-    success: CheckCircle,
-    error: XCircle,
-    warning: AlertTriangle,
-  };
-
-  const colors = {
-    info: 'text-blue-600',
-    success: 'text-green-600',
-    error: 'text-red-600',
-    warning: 'text-amber-600',
-  };
-
-  const Icon = icons[type];
+  const Icon = alertIcons[type];
+  const tone = alertTone[type];
 
   return (
-    <div className="fixed inset-0 z-[10001] flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={hideAlert} />
-      <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <div className="flex items-start gap-4">
-          <Icon className={`h-6 w-6 mt-0.5 ${colors[type]}`} />
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {title}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {message}
-            </p>
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={hideAlert}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            OK
-          </button>
-        </div>
-      </div>
-    </div>
+    <AlertDialogRoot open={isOpen} onOpenChange={(open) => { if (!open) hideAlert(); }}>
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogMedia className={tone.bg}>
+            <Icon className={cn('size-7', tone.icon)} />
+          </AlertDialogMedia>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{message}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="sm:justify-center">
+          <AlertDialogAction onClick={hideAlert}>OK</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialogRoot>
   );
 }
 
 export function ConfirmDialog() {
-  const { isOpen, title, message, confirmText, cancelText, hideConfirm } = useConfirmStore();
-
-  if (!isOpen) return null;
+  const { isOpen, title, message, confirmText, cancelText, variant, hideConfirm } = useConfirmStore();
+  const destructive = variant === 'destructive';
 
   return (
-    <div className="fixed inset-0 z-[10001] flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={() => hideConfirm(false)} />
-      <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <div className="flex items-start gap-4">
-          <AlertTriangle className="h-6 w-6 mt-0.5 text-amber-600" />
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {title}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {message}
-            </p>
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={() => hideConfirm(false)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            {cancelText || 'Cancelar'}
-          </button>
-          <button
+    <AlertDialogRoot open={isOpen} onOpenChange={(open) => { if (!open) hideConfirm(false); }}>
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogMedia className={destructive ? 'bg-danger/10' : 'bg-warning/10'}>
+            <AlertTriangle className={cn('size-7', destructive ? 'text-danger' : 'text-warning')} />
+          </AlertDialogMedia>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{message}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => hideConfirm(false)}>{cancelText || 'Cancelar'}</AlertDialogCancel>
+          <AlertDialogAction
+            variant={destructive ? 'destructive' : 'default'}
             onClick={() => hideConfirm(true)}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
           >
             {confirmText || 'Confirmar'}
-          </button>
-        </div>
-      </div>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialogRoot>
   );
 }

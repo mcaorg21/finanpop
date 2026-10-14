@@ -86,6 +86,17 @@ export default {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.04)",
         sm: "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04)",
       },
+      // Escala única de empilhamento: todo picker flutuante (popover/select/menu)
+      // fica acima de qualquer container (sheet/dialog).
+      zIndex: {
+        nav: "40",
+        overlay: "50",
+        sheet: "60",
+        dialog: "70",
+        popover: "80",
+        toast: "90",
+        alert: "100",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
