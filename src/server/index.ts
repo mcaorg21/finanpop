@@ -5,6 +5,8 @@ import { Hono } from "hono";
 import { setCookie, getCookie, deleteCookie } from "hono/cookie";
 import pool from "./db.js";
 import { hashPassword, verifyPassword } from "./password.js";
+import { addMonths, isMonth, monthRange, splitCents, todayISO } from "./lib/money.js";
+import { randomUUID } from "crypto";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -806,42 +808,123 @@ app.delete("/api/categories/:id", authMiddleware, async (c) => {
 
 // ============ TRANSACTIONS ============
 
-app.get("/api/transactions", authMiddleware, async (c) => {
-  const tenantId = c.get("tenantId") as number;
-  const { start_date, end_date, due_date_start, due_date_end, payment_date_start, payment_date_end, home_id, employee_id, category_id, type, status } = c.req.query();
+const TX_DATE_FIELDS = new Set(["date", "due_date", "payment_date"]);
 
-  let sql = `SELECT t.*, h.name as home_name,
-             CASE WHEN pc.name IS NOT NULL THEN pc.name || ' > ' || c.name ELSE c.name END as category_name,
-             e.name as employee_name,
-             co.name as company_name,
-             (SELECT COUNT(*) FROM attachments a WHERE a.transaction_id = t.id) as attachment_count
-             FROM transactions t
+const TX_SORTS: Record<string, string> = {
+  date_desc: "t.date DESC, t.id DESC",
+  date_asc: "t.date ASC, t.id ASC",
+  due_date_asc: "t.due_date ASC NULLS LAST, t.id ASC",
+  due_date_desc: "t.due_date DESC NULLS LAST, t.id DESC",
+  payment_date_desc: "t.payment_date DESC NULLS LAST, t.id DESC",
+  amount_desc: "t.amount DESC, t.id DESC",
+  amount_asc: "t.amount ASC, t.id ASC",
+  created_desc: "t.created_at DESC, t.id DESC",
+};
+
+const TX_FROM = `FROM transactions t
              LEFT JOIN homes h ON t.home_id = h.id
              LEFT JOIN categories c ON t.category_id = c.id
              LEFT JOIN categories pc ON c.parent_id = pc.id
              LEFT JOIN employees e ON t.employee_id = e.id
-             LEFT JOIN companies co ON t.company_id = co.id
-             WHERE t.tenant_id = $1`;
+             LEFT JOIN companies co ON t.company_id = co.id`;
+
+const TX_SELECT = `SELECT t.*, h.name as home_name,
+             CASE WHEN pc.name IS NOT NULL THEN pc.name || ' > ' || c.name ELSE c.name END as category_name,
+             e.name as employee_name,
+             co.name as company_name,
+             (SELECT COUNT(*)::int FROM attachments a WHERE a.transaction_id = t.id) as attachment_count
+             ${TX_FROM}`;
+
+// Filtros de lançamentos compartilhados por listagem, contagem e resumo.
+// Nomes de coluna vêm de listas fixas — nunca do input.
+const buildTransactionWhere = (c: any, tenantId: number) => {
+  const qs = c.req.query();
+  const where: string[] = ["t.tenant_id = $1"];
   const params: any[] = [tenantId];
-  let paramIdx = 2;
+  const add = (clause: string, value: unknown) => {
+    params.push(value);
+    where.push(clause.replace("?", `$${params.length}`));
+  };
+  const addIn = (column: string, values: string[]) => {
+    const placeholders = values.map((v) => { params.push(v); return `$${params.length}`; });
+    where.push(`${column} IN (${placeholders.join(",")})`);
+  };
 
-  if (start_date) { sql += ` AND t.date >= $${paramIdx++}`; params.push(start_date); }
-  if (end_date) { sql += ` AND t.date <= $${paramIdx++}`; params.push(end_date); }
-  if (due_date_start) { sql += ` AND t.due_date >= $${paramIdx++}`; params.push(due_date_start); }
-  if (due_date_end) { sql += ` AND t.due_date <= $${paramIdx++}`; params.push(due_date_end); }
-  if (payment_date_start) { sql += ` AND t.payment_date >= $${paramIdx++}`; params.push(payment_date_start); }
-  if (payment_date_end) { sql += ` AND t.payment_date <= $${paramIdx++}`; params.push(payment_date_end); }
-  if (home_id) { sql += ` AND t.home_id = $${paramIdx++}`; params.push(home_id); }
-  if (employee_id) { sql += ` AND t.employee_id = $${paramIdx++}`; params.push(employee_id); }
-  if (c.req.query("company_id")) { sql += ` AND t.company_id = $${paramIdx++}`; params.push(c.req.query("company_id")); }
-  if (category_id) { sql += ` AND t.category_id = $${paramIdx++}`; params.push(category_id); }
-  if (type) { sql += ` AND t.type = $${paramIdx++}`; params.push(type); }
-  if (status) { sql += ` AND t.status = $${paramIdx++}`; params.push(status); }
+  const dateField = TX_DATE_FIELDS.has(qs.date_field) ? qs.date_field : "date";
+  if (isMonth(qs.month)) {
+    const { start, end } = monthRange(qs.month);
+    add(`t.${dateField} >= ?`, start);
+    add(`t.${dateField} <= ?`, end);
+  }
+  if (qs.start_date) add("t.date >= ?", qs.start_date);
+  if (qs.end_date) add("t.date <= ?", qs.end_date);
+  if (qs.due_date_start) add("t.due_date >= ?", qs.due_date_start);
+  if (qs.due_date_end) add("t.due_date <= ?", qs.due_date_end);
+  if (qs.payment_date_start) add("t.payment_date >= ?", qs.payment_date_start);
+  if (qs.payment_date_end) add("t.payment_date <= ?", qs.payment_date_end);
+  if (qs.home_id) add("t.home_id = ?", qs.home_id);
+  const homeIds = c.req.queries("home_ids[]") || [];
+  if (homeIds.length > 0) addIn("t.home_id", homeIds);
+  if (qs.employee_id) add("t.employee_id = ?", qs.employee_id);
+  if (qs.company_id) add("t.company_id = ?", qs.company_id);
+  if (qs.category_id) add("t.category_id = ?", qs.category_id);
+  const categoryIds = c.req.queries("category_ids[]") || [];
+  if (categoryIds.length > 0) addIn("t.category_id", categoryIds);
+  if (qs.type) add("t.type = ?", qs.type);
+  if (qs.status) add("t.status = ?", qs.status);
+  if (qs.payment_method) add("t.payment_method = ?", qs.payment_method);
+  if (qs.overdue === "1") where.push("t.status = 'PENDING' AND t.due_date < CURRENT_DATE");
+  const search = (qs.q || "").trim();
+  if (search) {
+    params.push(`%${search}%`);
+    const i = params.length;
+    where.push(`(t.description ILIKE $${i} OR t.notes ILIKE $${i} OR c.name ILIKE $${i} OR pc.name ILIKE $${i} OR co.name ILIKE $${i} OR e.name ILIKE $${i} OR h.name ILIKE $${i})`);
+  }
 
-  sql += " ORDER BY t.date DESC, t.id DESC";
+  return { whereSql: "WHERE " + where.join(" AND "), params, dateField };
+};
 
-  const { rows } = await pool.query(sql, params);
-  return c.json(rows);
+app.get("/api/transactions", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
+  const { whereSql, params } = buildTransactionWhere(c, tenantId);
+  const orderBy = TX_SORTS[c.req.query("sort") || "date_desc"] ?? TX_SORTS.date_desc;
+  const selectSql = `${TX_SELECT} ${whereSql} ORDER BY ${orderBy}`;
+
+  // Sem `page`: array puro (compatível com os clientes antigos e com exports).
+  const pageParam = c.req.query("page");
+  if (!pageParam) {
+    const { rows } = await pool.query(selectSql, params);
+    return c.json(rows);
+  }
+
+  const page = Math.max(1, parseInt(pageParam) || 1);
+  const pageSize = Math.min(200, Math.max(1, parseInt(c.req.query("page_size") || "25") || 25));
+  const offset = (page - 1) * pageSize;
+
+  const [itemsRes, countRes, summaryRes] = await Promise.all([
+    pool.query(`${selectSql} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, pageSize, offset]),
+    pool.query(`SELECT COUNT(*)::int AS total ${TX_FROM} ${whereSql}`, params),
+    pool.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN t.type = 'REVENUE' AND t.status <> 'CANCELED' THEN t.amount END), 0)::float AS receitas,
+         COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' AND t.status <> 'CANCELED' THEN t.amount END), 0)::float AS despesas,
+         COALESCE(SUM(CASE WHEN t.type = 'REVENUE' AND t.status = 'PENDING' THEN t.amount END), 0)::float AS receitas_pendentes,
+         COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' AND t.status = 'PENDING' THEN t.amount END), 0)::float AS despesas_pendentes,
+         COUNT(*) FILTER (WHERE t.status = 'PENDING' AND t.due_date < CURRENT_DATE)::int AS atrasados,
+         COALESCE(SUM(CASE WHEN t.status = 'PENDING' AND t.due_date < CURRENT_DATE THEN t.amount END), 0)::float AS atrasados_total
+       ${TX_FROM} ${whereSql}`,
+      params
+    ),
+  ]);
+
+  const s = summaryRes.rows[0];
+  return c.json({
+    items: itemsRes.rows,
+    total: countRes.rows[0].total,
+    page,
+    page_size: pageSize,
+    summary: { ...s, saldo: s.receitas - s.despesas },
+  });
 });
 
 app.post("/api/transactions", authMiddleware, async (c) => {
@@ -858,6 +941,81 @@ app.post("/api/transactions", authMiddleware, async (c) => {
     [date, type, amount, home_id, category_id, employee_id || null, company_id || null, payment_method, status || "PENDING", description || null, notes || null, due_date || null, payment_date || null, tenantId]
   );
   return c.json({ id: rows[0].id, success: true }, 201);
+});
+
+// Parcelas (installments) ou repetição mensal (repeat) numa única transação SQL,
+// ligadas por group_id. Em "installments" amount é o TOTAL (centavos distribuídos sem perda);
+// em "repeat" amount é o valor de cada lançamento e cria count+1 registros.
+app.post("/api/transactions/batch", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
+  const body = await c.req.json();
+  const base = body?.base ?? {};
+  const mode = body?.mode;
+  const count = parseInt(body?.count);
+  const { date, type, amount, home_id, category_id, employee_id, company_id, payment_method, status, description, notes, due_date, payment_date } = base;
+
+  if (!date || !type || !amount || !home_id || !category_id || !payment_method) {
+    return c.json({ error: "Campos obrigatórios: data, tipo, valor, centro de custo, categoria e forma de pagamento" }, 400);
+  }
+  if (mode !== "installments" && mode !== "repeat") {
+    return c.json({ error: "mode deve ser 'installments' ou 'repeat'" }, 400);
+  }
+  const max = mode === "installments" ? 48 : 60;
+  if (!Number.isFinite(count) || count < 1 || count > max) {
+    return c.json({ error: `count deve estar entre 1 e ${max}` }, 400);
+  }
+
+  const total = Number(amount);
+  const records = mode === "installments" ? count : count + 1;
+  const amounts = mode === "installments"
+    ? splitCents(total, count)
+    : Array.from({ length: records }, () => Math.round(total * 100) / 100);
+  const groupId = randomUUID();
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const ids: number[] = [];
+    for (let i = 0; i < records; i++) {
+      const { rows } = await client.query(
+        `INSERT INTO transactions (date, type, amount, home_id, category_id, employee_id, company_id, payment_method, status, description, notes, due_date, payment_date, tenant_id, group_id, group_index, group_count)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+        [
+          addMonths(date, i), type, amounts[i], home_id, category_id, employee_id || null, company_id || null, payment_method,
+          i === 0 ? (status || "PENDING") : "PENDING",
+          description || null, notes || null,
+          due_date ? addMonths(due_date, i) : null,
+          i === 0 ? (payment_date || null) : null,
+          tenantId, groupId, i + 1, records,
+        ]
+      );
+      ids.push(rows[0].id);
+    }
+    await client.query("COMMIT");
+    return c.json({ ids, group_id: groupId, count: records, total: amounts.reduce((a, b) => a + b, 0) }, 201);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Batch transactions error:", error);
+    return c.json({ error: "Erro ao criar lançamentos" }, 500);
+  } finally {
+    client.release();
+  }
+});
+
+app.patch("/api/transactions/:id/status", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
+  const id = c.req.param("id");
+  const { status, payment_date } = await c.req.json();
+  if (!["PAID", "PENDING", "CANCELED"].includes(status)) {
+    return c.json({ error: "status inválido" }, 400);
+  }
+  const paymentDate = status === "PAID" ? (payment_date || todayISO()) : null;
+  const { rowCount } = await pool.query(
+    "UPDATE transactions SET status = $1, payment_date = $2, updated_at = NOW() WHERE id = $3 AND tenant_id = $4",
+    [status, paymentDate, id, tenantId]
+  );
+  if (!rowCount) return c.json({ error: "Lançamento não encontrado" }, 404);
+  return c.json({ success: true, status, payment_date: paymentDate });
 });
 
 app.put("/api/transactions/:id", authMiddleware, async (c) => {
@@ -883,27 +1041,53 @@ app.delete("/api/transactions/:id", authMiddleware, async (c) => {
 
 app.get("/api/stats", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+  const monthParam = c.req.query("month");
+  const month = isMonth(monthParam) ? monthParam : todayISO().slice(0, 7);
+  const { start, end } = monthRange(month);
 
-  const [homes, employees, categories, transactions, revenue, expense] = await Promise.all([
-    pool.query("SELECT COUNT(*) as count FROM homes WHERE tenant_id = $1", [tenantId]),
-    pool.query("SELECT COUNT(*) as count FROM employees WHERE is_active = true AND tenant_id = $1", [tenantId]),
-    pool.query("SELECT COUNT(*) as count FROM categories WHERE tenant_id = $1", [tenantId]),
-    pool.query("SELECT COUNT(*) as count FROM transactions WHERE date >= $1 AND date <= $2 AND tenant_id = $3", [startOfMonth, endOfMonth, tenantId]),
-    pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'REVENUE' AND status != 'CANCELED' AND date >= $1 AND date <= $2 AND tenant_id = $3", [startOfMonth, endOfMonth, tenantId]),
-    pool.query("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'EXPENSE' AND status != 'CANCELED' AND date >= $1 AND date <= $2 AND tenant_id = $3", [startOfMonth, endOfMonth, tenantId]),
+  const [homes, employees, categories, monthAgg, pendingAgg, overdueAgg, anyTx] = await Promise.all([
+    pool.query("SELECT COUNT(*)::int as count FROM homes WHERE tenant_id = $1", [tenantId]),
+    pool.query("SELECT COUNT(*)::int as count FROM employees WHERE is_active = true AND tenant_id = $1", [tenantId]),
+    pool.query("SELECT COUNT(*)::int as count FROM categories WHERE tenant_id = $1", [tenantId]),
+    pool.query(
+      `SELECT COUNT(*) FILTER (WHERE status <> 'CANCELED')::int AS lancamentos,
+              COALESCE(SUM(CASE WHEN type = 'REVENUE' AND status <> 'CANCELED' THEN amount END), 0)::float AS receitas,
+              COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status <> 'CANCELED' THEN amount END), 0)::float AS despesas
+       FROM transactions WHERE tenant_id = $1 AND date >= $2 AND date <= $3`,
+      [tenantId, start, end]
+    ),
+    pool.query(
+      `SELECT COALESCE(SUM(CASE WHEN type = 'REVENUE' THEN amount END), 0)::float AS receitas_pendentes,
+              COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount END), 0)::float AS despesas_pendentes
+       FROM transactions
+       WHERE tenant_id = $1 AND status = 'PENDING' AND COALESCE(due_date, date) >= $2 AND COALESCE(due_date, date) <= $3`,
+      [tenantId, start, end]
+    ),
+    pool.query(
+      `SELECT COUNT(*)::int AS atrasados_count, COALESCE(SUM(amount), 0)::float AS atrasados_total
+       FROM transactions WHERE tenant_id = $1 AND type = 'EXPENSE' AND status = 'PENDING' AND due_date < CURRENT_DATE`,
+      [tenantId]
+    ),
+    pool.query("SELECT EXISTS(SELECT 1 FROM transactions WHERE tenant_id = $1) AS has_transactions", [tenantId]),
   ]);
 
+  const m = monthAgg.rows[0];
+  const p = pendingAgg.rows[0];
+  const o = overdueAgg.rows[0];
   return c.json({
-    centrosCusto: parseInt(homes.rows[0].count),
-    funcionarios: parseInt(employees.rows[0].count),
-    categorias: parseInt(categories.rows[0].count),
-    lancamentos: parseInt(transactions.rows[0].count),
-    receitas: parseFloat(revenue.rows[0].total),
-    despesas: parseFloat(expense.rows[0].total),
-    saldo: parseFloat(revenue.rows[0].total) - parseFloat(expense.rows[0].total),
+    month,
+    centrosCusto: homes.rows[0].count,
+    funcionarios: employees.rows[0].count,
+    categorias: categories.rows[0].count,
+    lancamentos: m.lancamentos,
+    receitas: m.receitas,
+    despesas: m.despesas,
+    saldo: m.receitas - m.despesas,
+    receitas_pendentes: p.receitas_pendentes,
+    despesas_pendentes: p.despesas_pendentes,
+    atrasados_count: o.atrasados_count,
+    atrasados_total: o.atrasados_total,
+    has_transactions: anyTx.rows[0].has_transactions === true,
   });
 });
 
@@ -911,14 +1095,27 @@ app.get("/api/stats", authMiddleware, async (c) => {
 
 app.get("/api/reports", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
-  const { start_date, end_date, due_date_start, due_date_end, payment_date_start, payment_date_end, employee_id, company_id, type, status } = c.req.query();
+  const qs = c.req.query();
+  const { start_date, end_date, due_date_start, due_date_end, payment_date_start, payment_date_end, employee_id, company_id, type, status } = qs;
   const homeIdsParam = c.req.queries("home_ids[]") || [];
   const categoryIdsParam = c.req.queries("category_ids[]") || [];
+
+  // Campo de data usado na evolução mensal: explícito ou inferido do filtro de período.
+  const dateField = TX_DATE_FIELDS.has(qs.date_field)
+    ? qs.date_field
+    : (due_date_start || due_date_end) ? "due_date"
+    : (payment_date_start || payment_date_end) ? "payment_date"
+    : "date";
 
   let whereClause = "WHERE t.tenant_id = $1";
   const params: any[] = [tenantId];
   let paramIdx = 2;
 
+  if (isMonth(qs.month)) {
+    const { start, end } = monthRange(qs.month);
+    whereClause += ` AND t.${dateField} >= $${paramIdx++} AND t.${dateField} <= $${paramIdx++}`;
+    params.push(start, end);
+  }
   if (start_date) { whereClause += ` AND t.date >= $${paramIdx++}`; params.push(start_date); }
   if (end_date) { whereClause += ` AND t.date <= $${paramIdx++}`; params.push(end_date); }
   if (due_date_start) { whereClause += ` AND t.due_date >= $${paramIdx++}`; params.push(due_date_start); }
@@ -940,44 +1137,64 @@ app.get("/api/reports", authMiddleware, async (c) => {
   if (type) { whereClause += ` AND t.type = $${paramIdx++}`; params.push(type); }
   if (status) { whereClause += ` AND t.status = $${paramIdx++}`; params.push(status); }
 
-  const [totalsResult, evolutionResult, categoryResult] = await Promise.all([
+  const [totalsResult, evolutionResult, categoryResult, paymentMethodResult] = await Promise.all([
     pool.query(
-      `SELECT COALESCE(SUM(CASE WHEN type = 'REVENUE' AND status != 'CANCELED' THEN amount ELSE 0 END), 0) as receitas,
-              COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status != 'CANCELED' THEN amount ELSE 0 END), 0) as despesas,
-              COUNT(*) as lancamentos
+      `SELECT COALESCE(SUM(CASE WHEN type = 'REVENUE' AND status <> 'CANCELED' THEN amount END), 0)::float AS receitas,
+              COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status <> 'CANCELED' THEN amount END), 0)::float AS despesas,
+              COALESCE(SUM(CASE WHEN type = 'REVENUE' AND status = 'PAID' THEN amount END), 0)::float AS receitas_pagas,
+              COALESCE(SUM(CASE WHEN type = 'REVENUE' AND status = 'PENDING' THEN amount END), 0)::float AS receitas_pendentes,
+              COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status = 'PAID' THEN amount END), 0)::float AS despesas_pagas,
+              COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status = 'PENDING' THEN amount END), 0)::float AS despesas_pendentes,
+              COUNT(*) FILTER (WHERE status = 'PENDING' AND due_date < CURRENT_DATE)::int AS atrasados,
+              COALESCE(SUM(CASE WHEN status = 'PENDING' AND due_date < CURRENT_DATE THEN amount END), 0)::float AS atrasados_total,
+              COUNT(*) FILTER (WHERE status <> 'CANCELED')::int AS lancamentos,
+              COUNT(*) FILTER (WHERE status = 'CANCELED')::int AS cancelados
        FROM transactions t ${whereClause}`,
       params
     ),
     pool.query(
-      `SELECT to_char(date, 'YYYY-MM') as date,
-              SUM(CASE WHEN type = 'REVENUE' AND status != 'CANCELED' THEN amount ELSE 0 END) as receitas,
-              SUM(CASE WHEN type = 'EXPENSE' AND status != 'CANCELED' THEN amount ELSE 0 END) as despesas,
-              SUM(CASE WHEN type = 'EXPENSE' AND status = 'PAID' THEN amount ELSE 0 END) as despesas_pagas,
-              SUM(CASE WHEN type = 'EXPENSE' AND status = 'PENDING' THEN amount ELSE 0 END) as despesas_pendentes
-       FROM transactions t ${whereClause}
-       GROUP BY to_char(date, 'YYYY-MM')
+      `SELECT to_char(t.${dateField}, 'YYYY-MM') AS date,
+              COALESCE(SUM(CASE WHEN type = 'REVENUE' AND status <> 'CANCELED' THEN amount END), 0)::float AS receitas,
+              COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status <> 'CANCELED' THEN amount END), 0)::float AS despesas,
+              COALESCE(SUM(CASE WHEN type = 'REVENUE' AND status = 'PAID' THEN amount END), 0)::float AS receitas_pagas,
+              COALESCE(SUM(CASE WHEN type = 'REVENUE' AND status = 'PENDING' THEN amount END), 0)::float AS receitas_pendentes,
+              COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status = 'PAID' THEN amount END), 0)::float AS despesas_pagas,
+              COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status = 'PENDING' THEN amount END), 0)::float AS despesas_pendentes
+       FROM transactions t ${whereClause} AND t.${dateField} IS NOT NULL
+       GROUP BY to_char(t.${dateField}, 'YYYY-MM')
        ORDER BY date ASC`,
       params
     ),
     pool.query(
-      `SELECT t.category_id, c.name, SUM(t.amount) as value
-       FROM transactions t JOIN categories c ON t.category_id = c.id
-       ${whereClause} AND t.status != 'CANCELED'
-       GROUP BY t.category_id, c.name ORDER BY value DESC LIMIT 10`,
+      `SELECT t.type, t.category_id, c.name, c.parent_id, pc.name AS parent_name, SUM(t.amount)::float AS value
+       FROM transactions t
+       JOIN categories c ON t.category_id = c.id
+       LEFT JOIN categories pc ON c.parent_id = pc.id
+       ${whereClause} AND t.status <> 'CANCELED'
+       GROUP BY t.type, t.category_id, c.name, c.parent_id, pc.name
+       ORDER BY value DESC`,
+      params
+    ),
+    pool.query(
+      `SELECT t.type, t.payment_method, SUM(t.amount)::float AS value
+       FROM transactions t ${whereClause} AND t.status <> 'CANCELED'
+       GROUP BY t.type, t.payment_method
+       ORDER BY value DESC`,
       params
     ),
   ]);
 
-  const totals = totalsResult.rows[0];
+  const t = totalsResult.rows[0];
   return c.json({
+    date_field: dateField,
     totals: {
-      receitas: parseFloat(totals.receitas),
-      despesas: parseFloat(totals.despesas),
-      saldo: parseFloat(totals.receitas) - parseFloat(totals.despesas),
-      lancamentos: parseInt(totals.lancamentos),
+      ...t,
+      saldo: t.receitas - t.despesas,
+      realizado: t.receitas_pagas - t.despesas_pagas,
     },
     evolution: evolutionResult.rows,
     byCategory: categoryResult.rows,
+    byPaymentMethod: paymentMethodResult.rows,
   });
 });
 
