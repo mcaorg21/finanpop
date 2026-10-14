@@ -309,7 +309,7 @@ export default function RegisterPage() {
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
             <img
-              src="/logo-secgo.png"
+              src={`${import.meta.env.BASE_URL}logo-secgo.png`}
               alt="FinanPOP"
               className="h-12"
             />

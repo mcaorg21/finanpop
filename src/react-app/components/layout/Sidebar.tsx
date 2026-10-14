@@ -73,7 +73,7 @@ export default function Sidebar() {
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <img
-              src="/logo-secgo.png"
+              src={`${import.meta.env.BASE_URL}logo-secgo.png`}
               alt="FinanPOP"
               className="w-10 h-10 object-contain"
             />
@@ -177,7 +177,7 @@ export default function Sidebar() {
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             <img
-              src="/logo-secgo.png"
+              src={`${import.meta.env.BASE_URL}logo-secgo.png`}
               alt="FinanPOP"
               className="w-8 h-8 object-contain"
             />

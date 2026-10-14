@@ -11,7 +11,7 @@ export default function Landing() {
         <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img
-              src="/logo-secgo.png"
+              src={`${import.meta.env.BASE_URL}logo-secgo.png`}
               alt="FinanPOP"
               className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
             />

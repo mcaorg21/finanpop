@@ -98,7 +98,7 @@ export default function TopNav() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <img
-              src="/logo-secgo.png"
+              src={`${import.meta.env.BASE_URL}logo-secgo.png`}
               alt="FinanPOP"
               className="w-8 h-8 object-contain"
             />

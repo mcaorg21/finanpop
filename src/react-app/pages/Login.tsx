@@ -64,7 +64,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md relative shadow-sm">
         <CardHeader className="text-center space-y-4 pb-8">
           <img
-            src="/logo-secgo.png"
+            src={`${import.meta.env.BASE_URL}logo-secgo.png`}
             alt="FinanPOP"
             className="mx-auto w-16 h-16 object-contain"
           />

@@ -298,7 +298,7 @@ export default function RelatoriosPage() {
     
     setIsExportingPdf(true);
     try {
-      const logoUrl = "/logo-secgo.png";
+      const logoUrl = `${import.meta.env.BASE_URL}logo-secgo.png`;
       
       // Capture the report content
       const canvas = await html2canvas(reportContentRef.current, {
