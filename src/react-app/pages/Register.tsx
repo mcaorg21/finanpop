@@ -231,7 +231,7 @@ export default function RegisterPage() {
         setCodeSent(true);
         toast({
           title: "Código enviado!",
-          description: "Verifique seu email e digite o código recebido.",
+          description: "Verifique seu email e digite o código recebido. O email pode ter ido para a caixa de spam.",
         });
       } else {
         toast({
@@ -388,7 +388,7 @@ export default function RegisterPage() {
                   <div className="space-y-2 p-4 bg-muted/50 border border-border rounded-lg">
                     <Label htmlFor="verification_code">Código de Verificação *</Label>
                     <p className="text-sm text-muted-foreground">
-                      Digite o código de 6 dígitos enviado para seu email
+                      Digite o código de 6 dígitos enviado para seu email. Se não encontrar, olhe a caixa de spam.
                     </p>
                     <div className="flex gap-2">
                       <Input
