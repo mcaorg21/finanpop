@@ -75,6 +75,24 @@ const getEmailTransporter = () => {
   });
 };
 
+// Envia e-mail via Resend (API HTTP, funciona na Railway) ou, sem RESEND_API_KEY, via SMTP.
+const sendEmail = async (opts: { to: string; subject: string; html: string; text: string }) => {
+  const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || "FinanPOP <noreply@finanpop.com>";
+  if (process.env.RESEND_API_KEY) {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from, to: [opts.to], subject: opts.subject, html: opts.html, text: opts.text }),
+    });
+    if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+    return;
+  }
+  await getEmailTransporter().sendMail({ from, ...opts });
+};
+
 // ============ HEALTH ============
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
@@ -132,9 +150,7 @@ app.post("/api/auth/send-code", async (c) => {
       [email, code, expiresAt.toISOString(), new Date().toISOString()]
     );
 
-    const transporter = getEmailTransporter();
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || "noreply@finanpop.com",
+    await sendEmail({
       to: email,
       subject: "FinanPOP - Código de Verificação",
       html: `
