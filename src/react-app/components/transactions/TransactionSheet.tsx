@@ -152,6 +152,8 @@ export default function TransactionSheet() {
       ...f,
       status,
       payment_date: status === "PAID" ? f.payment_date || todayISO() : "",
+      // Ao marcar como pago, vencimento vazio assume a data do lançamento.
+      due_date: status === "PAID" ? f.due_date || f.date || todayISO() : f.due_date,
     }));
 
   const total = parseCurrencyToNumber(form.amount);

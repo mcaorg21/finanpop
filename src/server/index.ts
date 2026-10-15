@@ -1030,7 +1030,7 @@ app.patch("/api/transactions/:id/status", authMiddleware, async (c) => {
   }
   const paymentDate = status === "PAID" ? (payment_date || todayISO()) : null;
   const { rowCount } = await pool.query(
-    "UPDATE transactions SET status = $1, payment_date = $2, updated_at = NOW() WHERE id = $3 AND tenant_id = $4",
+    "UPDATE transactions SET status = $1, payment_date = $2, due_date = CASE WHEN $1 = 'PAID' THEN COALESCE(due_date, date) ELSE due_date END, updated_at = NOW() WHERE id = $3 AND tenant_id = $4",
     [status, paymentDate, id, tenantId]
   );
   if (!rowCount) return c.json({ error: "Lançamento não encontrado" }, 404);
