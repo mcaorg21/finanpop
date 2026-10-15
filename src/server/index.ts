@@ -62,6 +62,9 @@ const adminAuthMiddleware = async (c: any, next: any) => {
   await next();
 };
 
+// Duração do período de teste gratuito (dias)
+const TRIAL_DAYS = 45;
+
 // Email transporter
 const getEmailTransporter = () => {
   return nodemailer.createTransport({
@@ -350,7 +353,7 @@ app.post("/api/auth/register", async (c) => {
 
   try {
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 5);
+    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
 
     const { rows: tenantRows } = await pool.query(
       `INSERT INTO tenants (name, email, company_type, cnpj, subscription_status, subscription_plan, trial_ends_at, is_active)

@@ -140,7 +140,7 @@ export default function Funcionalidades() {
             Pronto para começar?
           </h2>
           <p className="text-base sm:text-lg text-primary-foreground/80 mb-6 sm:mb-8">
-            Experimente grátis por 7 dias. Depois, apenas R$ 7,90/mês.
+            Experimente grátis por 45 dias. Depois, apenas R$ 7,90/mês.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <Link

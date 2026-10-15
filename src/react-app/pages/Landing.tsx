@@ -46,7 +46,7 @@ export default function Landing() {
 
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground mb-6 leading-tight">
             Transforme sua vida financeira em
-            <span className="text-muted-foreground"> 7 dias grátis</span>
+            <span className="text-muted-foreground"> 45 dias grátis</span>
           </h1>
 
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
@@ -64,7 +64,7 @@ export default function Landing() {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            7 dias grátis • Depois apenas <span className="font-semibold text-foreground">R$ 7,90/mês</span> • Cancele quando quiser
+            45 dias grátis • Depois apenas <span className="font-semibold text-foreground">R$ 7,90/mês</span> • Cancele quando quiser
           </p>
         </div>
       </section>
@@ -139,7 +139,7 @@ export default function Landing() {
 
               <div className="border-l-2 border-border pl-4">
                 <h4 className="font-semibold text-foreground mb-1">Risco zero</h4>
-                <p className="text-muted-foreground">7 dias grátis para testar sem compromisso</p>
+                <p className="text-muted-foreground">45 dias grátis para testar sem compromisso</p>
               </div>
 
               <div className="border-l-2 border-border pl-4">
@@ -163,7 +163,7 @@ export default function Landing() {
             Comece grátis hoje
           </h2>
           <p className="text-lg mb-2 text-primary-foreground/80">
-            Experimente por 7 dias sem pagar nada
+            Experimente por 45 dias sem pagar nada
           </p>
           <p className="text-3xl font-semibold tabular-nums mb-8">
             Depois apenas R$ 7,90/mês
