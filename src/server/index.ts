@@ -11,6 +11,9 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
+import { createTransaction, UPLOADS_DIR } from "./lib/transactions.js";
+import { registerIntegrationRoutes } from "./integrations.js";
+import { registerWhatsAppRoutes } from "./whatsapp/routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -954,12 +957,8 @@ app.post("/api/transactions", authMiddleware, async (c) => {
     return c.json({ error: "Campos obrigatórios: data, tipo, valor, centro de custo, categoria e forma de pagamento" }, 400);
   }
 
-  const { rows } = await pool.query(
-    `INSERT INTO transactions (date, type, amount, home_id, category_id, employee_id, company_id, payment_method, status, description, notes, due_date, payment_date, tenant_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
-    [date, type, amount, home_id, category_id, employee_id || null, company_id || null, payment_method, status || "PENDING", description || null, notes || null, due_date || null, payment_date || null, tenantId]
-  );
-  return c.json({ id: rows[0].id, success: true }, 201);
+  const id = await createTransaction(tenantId, { date, type, amount, home_id, category_id, employee_id, company_id, payment_method, status, description, notes, due_date, payment_date });
+  return c.json({ id, success: true }, 201);
 });
 
 // Parcelas (installments) ou repetição mensal (repeat) numa única transação SQL,
@@ -1284,7 +1283,6 @@ app.get("/api/reports", authMiddleware, async (c) => {
 
 // ============ ATTACHMENTS ============
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, "..", "uploads");
 
 app.post("/api/transactions/:id/attachments", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
@@ -1489,6 +1487,9 @@ app.put("/api/timesheets/:id/entries", authMiddleware, async (c) => {
 });
 
 // ============ STATIC FILES (production) ============
+
+registerIntegrationRoutes(app, authMiddleware);
+registerWhatsAppRoutes(app);
 
 const publicDir = path.join(__dirname, "..", "public");
 if (fs.existsSync(publicDir)) {

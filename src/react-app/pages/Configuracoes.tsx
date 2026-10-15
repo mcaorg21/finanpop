@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/react-app/components/ui/badge";
 import { Switch } from "@/react-app/components/ui/switch";
 import { useAlert } from "@/react-app/hooks/use-alert";
+import AiWhatsappCard from "@/react-app/components/settings/AiWhatsappCard";
 
 interface AppUser {
   id: number;
@@ -364,6 +365,8 @@ export default function ConfiguracoesPage() {
           )}
         </CardContent>
       </Card>
+
+      <AiWhatsappCard />
 
       {/* User Management */}
       <Card>
