@@ -1037,16 +1037,81 @@ app.patch("/api/transactions/:id/status", authMiddleware, async (c) => {
   return c.json({ success: true, status, payment_date: paymentDate });
 });
 
+// Campos que podem se propagar para as outras ocorrências de uma recorrência/parcelamento.
+// status e payment_date nunca propagam: cada ocorrência é paga individualmente.
+const PROPAGATE_FIELDS = ["amount", "type", "home_id", "category_id", "employee_id", "company_id", "payment_method", "description", "notes", "date", "due_date"] as const;
+
+// `scope`: "one" (padrão) só este lançamento; "following" este e os próximos do grupo;
+// "all" todos do grupo. As demais ocorrências só são alteradas se ainda estiverem PENDENTES e
+// apenas nos campos listados em `changed` (o que o usuário de fato editou).
 app.put("/api/transactions/:id", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
   const id = c.req.param("id");
-  const { date, type, amount, home_id, category_id, employee_id, company_id, payment_method, status, description, notes, due_date, payment_date } = await c.req.json();
+  const body = await c.req.json();
+  const { date, type, amount, home_id, category_id, employee_id, company_id, payment_method, status, description, notes, due_date, payment_date } = body;
+  const scope = body.scope === "following" || body.scope === "all" ? body.scope : "one";
+  const changed: string[] = Array.isArray(body.changed) ? body.changed.filter((f: unknown) => (PROPAGATE_FIELDS as readonly string[]).includes(f as string)) : [];
 
-  await pool.query(
-    `UPDATE transactions SET date=$1, type=$2, amount=$3, home_id=$4, category_id=$5, employee_id=$6, company_id=$7, payment_method=$8, status=$9, description=$10, notes=$11, due_date=$12, payment_date=$13, updated_at=NOW() WHERE id=$14 AND tenant_id=$15`,
-    [date, type, amount, home_id, category_id, employee_id || null, company_id || null, payment_method, status, description || null, notes || null, due_date || null, payment_date || null, id, tenantId]
-  );
-  return c.json({ success: true });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: curRows } = await client.query(
+      "SELECT group_id, group_index, date, due_date FROM transactions WHERE id = $1 AND tenant_id = $2 FOR UPDATE",
+      [id, tenantId]
+    );
+    if (!curRows[0]) {
+      await client.query("ROLLBACK");
+      return c.json({ error: "Lançamento não encontrado" }, 404);
+    }
+
+    await client.query(
+      `UPDATE transactions SET date=$1, type=$2, amount=$3, home_id=$4, category_id=$5, employee_id=$6, company_id=$7, payment_method=$8, status=$9, description=$10, notes=$11, due_date=$12, payment_date=$13, updated_at=NOW() WHERE id=$14 AND tenant_id=$15`,
+      [date, type, amount, home_id, category_id, employee_id || null, company_id || null, payment_method, status, description || null, notes || null, due_date || null, payment_date || null, id, tenantId]
+    );
+
+    let updated = 0;
+    const cur = curRows[0];
+    if (scope !== "one" && cur.group_id && changed.length > 0) {
+      const { rows: siblings } = await client.query(
+        `SELECT id, group_index FROM transactions
+         WHERE tenant_id = $1 AND group_id = $2 AND id <> $3 AND status = 'PENDING'
+           AND ($4 = 'all' OR group_index > $5)`,
+        [tenantId, cur.group_id, id, scope, cur.group_index]
+      );
+      const values: Record<string, unknown> = {
+        amount, type, home_id, category_id, employee_id: employee_id || null, company_id: company_id || null,
+        payment_method, description: description || null, notes: notes || null,
+      };
+      for (const sib of siblings) {
+        const sets: string[] = [];
+        const params: unknown[] = [];
+        for (const field of changed) {
+          if (field === "date") {
+            params.push(addMonths(date, sib.group_index - cur.group_index));
+          } else if (field === "due_date") {
+            params.push(due_date ? addMonths(due_date, sib.group_index - cur.group_index) : null);
+          } else {
+            params.push(values[field]);
+          }
+          sets.push(`${field} = $${params.length}`);
+        }
+        params.push(sib.id, tenantId);
+        await client.query(
+          `UPDATE transactions SET ${sets.join(", ")}, updated_at = NOW() WHERE id = $${params.length - 1} AND tenant_id = $${params.length}`,
+          params
+        );
+        updated++;
+      }
+    }
+    await client.query("COMMIT");
+    return c.json({ success: true, updated_others: updated });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Update transaction error:", error);
+    return c.json({ error: "Erro ao atualizar lançamento" }, 500);
+  } finally {
+    client.release();
+  }
 });
 
 app.delete("/api/transactions/:id", authMiddleware, async (c) => {

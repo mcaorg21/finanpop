@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Loader2, Plus } from "lucide-react";
+import { Check, ChevronDown, Loader2, Plus } from "lucide-react";
 
 import { cn } from "@/react-app/lib/utils";
 import { Button } from "@/react-app/components/ui/button";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/react-app/components/ui/toggle-group";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/react-app/components/ui/input-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/react-app/components/ui/collapsible";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/react-app/components/ui/dialog";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/react-app/components/ui/sheet";
 import { useToast } from "@/react-app/hooks/use-toast";
 import { useReferenceData } from "@/react-app/hooks/use-reference-data";
@@ -23,6 +24,17 @@ import { AttachmentsField, type Attachment } from "./AttachmentsField";
 import { LAST_HOME_KEY, clamp, emptyForm, fromRecord, toPayload, validateForm, type TransactionFormValues } from "./types";
 
 const NONE = "__none";
+
+type EditScope = "one" | "following" | "all";
+
+// Campos do formulário que podem se propagar para as outras ocorrências (ver PROPAGATE_FIELDS no servidor).
+const PROPAGATE_KEYS = ["amount", "type", "home_id", "category_id", "employee_id", "company_id", "payment_method", "description", "notes", "date", "due_date"] as const;
+
+const SCOPE_OPTIONS: { value: EditScope; title: string; hint: string }[] = [
+  { value: "one", title: "Somente este lançamento", hint: "As demais ocorrências não são alteradas." },
+  { value: "following", title: "Este e os próximos", hint: "Altera este e as ocorrências seguintes que ainda estão pendentes." },
+  { value: "all", title: "Todos", hint: "Altera todas as ocorrências que ainda estão pendentes." },
+];
 
 function FieldError({ message }: { message?: string }) {
   return message ? <p className="text-xs text-destructive">{message}</p> : null;
@@ -74,6 +86,8 @@ export default function TransactionSheet() {
   const [quickCompany, setQuickCompany] = useState("");
   const [showQuickCompany, setShowQuickCompany] = useState(false);
   const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const [scopeAsk, setScopeAsk] = useState<{ andNew: boolean } | null>(null);
+  const [scope, setScope] = useState<EditScope>("one");
   const amountRef = useRef<HTMLInputElement>(null);
 
   const isEdit = mode === "edit";
@@ -154,13 +168,30 @@ export default function TransactionSheet() {
     }
   };
 
-  const submit = async (andNew: boolean) => {
+  // Lançamento pendente que faz parte de uma recorrência/parcelamento: perguntar o alcance da edição.
+  const isRecurring = isEdit && !!transaction && transaction.status === "PENDING" && !!transaction.group_id && (transaction.group_count ?? 0) > 1;
+
+  const changedFields = (): string[] => {
+    if (!transaction) return [];
+    const orig = fromRecord(transaction);
+    return PROPAGATE_KEYS.filter((k) =>
+      k === "amount" ? parseCurrencyToNumber(form.amount) !== parseCurrencyToNumber(orig.amount) : form[k] !== orig[k]
+    );
+  };
+
+  const submit = async (andNew: boolean, chosenScope?: EditScope) => {
     const errs = validateForm(form, { requireCardType: !isEdit, cardType });
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
     }
+    if (isRecurring && !chosenScope && changedFields().length > 0) {
+      setScope("one");
+      setScopeAsk({ andNew });
+      return;
+    }
+    setScopeAsk(null);
     setIsSaving(true);
     try {
       const repeatCount = canRepeat && enableRepeat ? clamp(parseInt(repeatMonths) || 1, 1, 60) : 0;
@@ -169,10 +200,11 @@ export default function TransactionSheet() {
       let successMsg = "Lançamento registrado";
 
       if (editingId) {
-        const r = await request(`/app/api/transactions/${editingId}`, { ...json, method: "PUT", body: JSON.stringify(toPayload(form, total)) });
+        const r = await request(`/app/api/transactions/${editingId}`, { ...json, method: "PUT", body: JSON.stringify({ ...toPayload(form, total), scope: chosenScope ?? "one", changed: changedFields() }) });
         if (!r.ok) throw new Error(r.data?.error || "Erro ao salvar");
         ids = [editingId];
-        successMsg = "Lançamento atualizado";
+        const others = Number(r.data?.updated_others ?? 0);
+        successMsg = others > 0 ? `Lançamento atualizado + ${others} ${others > 1 ? "ocorrências" : "ocorrência"}` : "Lançamento atualizado";
       } else if (installmentCount > 1) {
         const r = await request("/app/api/transactions/batch", { ...json, method: "POST", body: JSON.stringify({ base: toPayload(form, total), mode: "installments", count: installmentCount }) });
         if (!r.ok) throw new Error(r.data?.error || "Erro ao salvar");
@@ -554,6 +586,44 @@ export default function TransactionSheet() {
           </SheetFooter>
         </form>
       </SheetContent>
+
+      <Dialog open={!!scopeAsk} onOpenChange={(o) => { if (!o) setScopeAsk(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar lançamento recorrente</DialogTitle>
+            <DialogDescription>
+              Este lançamento faz parte de uma série ({transaction?.group_index}/{transaction?.group_count}). O que você quer alterar?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2" role="radiogroup" aria-label="Alcance da edição">
+            {SCOPE_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={scope === o.value}
+                onClick={() => setScope(o.value)}
+                className={cn(
+                  "flex items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
+                  scope === o.value ? "border-primary bg-primary/5" : "border-border"
+                )}
+              >
+                <span className={cn("mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border", scope === o.value ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40")}>
+                  {scope === o.value && <Check className="size-3" />}
+                </span>
+                <span>
+                  <span className="block text-sm font-medium">{o.title}</span>
+                  <span className="block text-xs text-muted-foreground">{o.hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setScopeAsk(null)}>Voltar</Button>
+            <Button type="button" onClick={() => submit(scopeAsk?.andNew ?? false, scope)}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
