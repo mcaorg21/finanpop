@@ -117,6 +117,11 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              <div className="text-right">
+                <button type="button" onClick={() => navigate("/esqueci-senha")} className="text-sm text-primary hover:underline">
+                  Esqueci minha senha
+                </button>
+              </div>
             </div>
 
             {error && (

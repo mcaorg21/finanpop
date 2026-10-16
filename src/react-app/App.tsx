@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
+import ForgotPasswordPage from "@/react-app/pages/ForgotPassword";
+import ResetPasswordPage from "@/react-app/pages/ResetPassword";
 import LandingPage from "@/react-app/pages/Landing";
 import FuncionalidadesPage from "@/react-app/pages/Funcionalidades";
 import LoginPage from "@/react-app/pages/Login";
@@ -30,6 +32,8 @@ export default function App() {
       <Route path="/funcionalidades" element={<FuncionalidadesPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/admin" element={<AdminLoginPage />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route element={<AppShell />}>

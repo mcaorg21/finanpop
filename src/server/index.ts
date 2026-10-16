@@ -6,7 +6,7 @@ import { setCookie, getCookie, deleteCookie } from "hono/cookie";
 import pool from "./db.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { addMonths, isMonth, monthRange, splitCents, todayISO } from "./lib/money.js";
-import { randomUUID } from "crypto";
+import crypto, { randomUUID } from "crypto";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -68,6 +68,9 @@ const adminAuthMiddleware = async (c: any, next: any) => {
 // Duração do período de teste gratuito (dias)
 const TRIAL_DAYS = 45;
 
+// Tentativas de senha erradas antes de bloquear a conta
+const MAX_LOGIN_ATTEMPTS = 3;
+
 // Email transporter
 const getEmailTransporter = () => {
   return nodemailer.createTransport({
@@ -115,8 +118,24 @@ app.post("/api/auth/login", async (c) => {
   );
   const user = rows[0];
   if (user) {
+    if (user.locked_at) {
+      return c.json({ error: "Conta bloqueada após 3 tentativas incorretas. Use \"Esqueci minha senha\" para criar uma nova senha.", code: "ACCOUNT_LOCKED" }, 423);
+    }
     const { valid, legacy } = await verifyPassword(password, user.password);
-    if (!valid) return c.json({ error: "Usuário ou senha inválidos" }, 401);
+    if (!valid) {
+      const { rows: upd } = await pool.query(
+        `UPDATE users SET failed_attempts = failed_attempts + 1,
+           locked_at = CASE WHEN failed_attempts + 1 >= $2 THEN NOW() ELSE NULL END
+         WHERE id = $1 RETURNING failed_attempts, locked_at`,
+        [user.id, MAX_LOGIN_ATTEMPTS]
+      );
+      if (upd[0]?.locked_at) {
+        return c.json({ error: "Conta bloqueada após 3 tentativas incorretas. Use \"Esqueci minha senha\" para criar uma nova senha.", code: "ACCOUNT_LOCKED" }, 423);
+      }
+      const left = MAX_LOGIN_ATTEMPTS - (upd[0]?.failed_attempts ?? 0);
+      return c.json({ error: `Usuário ou senha inválidos. ${left === 1 ? "Resta 1 tentativa" : `Restam ${left} tentativas`} antes do bloqueio.` }, 401);
+    }
+    if (user.failed_attempts) await pool.query("UPDATE users SET failed_attempts = 0 WHERE id = $1", [user.id]);
     if (legacy) {
       const newHash = await hashPassword(password);
       await pool.query("UPDATE users SET password = $1 WHERE id = $2", [newHash, user.id]);
@@ -375,6 +394,85 @@ app.post("/api/auth/register", async (c) => {
     console.error("Registration error:", error);
     return c.json({ error: "Erro ao criar conta. Tente novamente." }, 500);
   }
+});
+
+// ---- Recuperação de senha ----
+const sha256 = (v: string) => crypto.createHash("sha256").update(v).digest("hex");
+const APP_URL = () => (process.env.APP_URL || "https://finanpop.com/app").replace(/\/$/, "");
+
+app.post("/api/auth/forgot-password", async (c) => {
+  const { identifier } = await c.req.json().catch(() => ({}));
+  const ident = String(identifier ?? "").trim().toLowerCase();
+  // Resposta sempre igual, exista a conta ou não (evita enumerar usuários).
+  const ok = c.json({ success: true, message: "Se houver uma conta com esses dados, enviamos um link para o e-mail cadastrado." });
+  if (!ident) return c.json({ error: "Informe seu e-mail ou usuário" }, 400);
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.name, u.username, t.email AS tenant_email FROM users u
+       JOIN tenants t ON u.tenant_id = t.id
+       WHERE u.is_active = true AND t.is_active = true
+         AND (LOWER(u.username) = $1 OR (LOWER(t.email) = $1 AND LOWER(u.username) = LOWER(t.email)))
+       LIMIT 1`,
+      [ident]
+    );
+    const user = rows[0];
+    if (!user) return ok;
+    const to = user.username.includes("@") ? user.username : user.tenant_email;
+    if (!to) return ok;
+
+    const { rows: recent } = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM password_resets WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'",
+      [user.id]
+    );
+    if (recent[0].n >= 3) return ok;
+
+    const token = crypto.randomBytes(32).toString("hex");
+    await pool.query(
+      "INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '1 hour')",
+      [user.id, sha256(token)]
+    );
+    const link = `${APP_URL()}/reset-password?token=${token}`;
+    await sendEmail({
+      to,
+      subject: "FinanPOP - Redefinição de senha",
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+        <body style="margin:0;padding:40px 20px;background-color:#f4f4f5;font-family:Arial,sans-serif;">
+          <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:8px;">
+            <div style="padding:32px 40px 24px 40px;border-bottom:1px solid #e4e4e7;">
+              <h1 style="margin:0;font-size:24px;font-weight:600;color:#18181b;">Redefinir senha</h1>
+            </div>
+            <div style="padding:32px 40px;">
+              <p style="margin:0 0 16px 0;font-size:16px;line-height:24px;color:#3f3f46;">Olá, ${String(user.name).replace(/[<>&]/g, "")}. Recebemos um pedido para redefinir a senha da sua conta no FinanPOP.</p>
+              <p style="margin:24px 0;text-align:center;"><a href="${link}" style="display:inline-block;background-color:#18181b;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;">Criar nova senha</a></p>
+              <p style="margin:0;font-size:14px;line-height:20px;color:#71717a;">O link vale por 1 hora e só pode ser usado uma vez. Se não foi você, ignore este e-mail: sua senha continua a mesma.</p>
+            </div>
+          </div>
+        </body></html>`,
+      text: `Para criar uma nova senha no FinanPOP, acesse: ${link}
+O link vale por 1 hora. Se não foi você, ignore este e-mail.`,
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+  }
+  return ok;
+});
+
+app.post("/api/auth/reset-password", async (c) => {
+  const { token, password } = await c.req.json().catch(() => ({}));
+  if (!token || typeof token !== "string") return c.json({ error: "Link inválido ou expirado" }, 400);
+  if (!password || String(password).length < 6) return c.json({ error: "A senha deve ter no mínimo 6 caracteres" }, 400);
+
+  // UPDATE atômico: consome o token uma única vez.
+  const { rows } = await pool.query(
+    "UPDATE password_resets SET used_at = NOW() WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW() RETURNING user_id",
+    [sha256(token)]
+  );
+  if (!rows[0]) return c.json({ error: "Link inválido ou expirado. Solicite um novo." }, 400);
+
+  await pool.query("UPDATE users SET password = $1, failed_attempts = 0, locked_at = NULL WHERE id = $2", [await hashPassword(String(password)), rows[0].user_id]);
+  await pool.query("UPDATE password_resets SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL", [rows[0].user_id]);
+  return c.json({ success: true, message: "Senha alterada. Faça login com a nova senha." });
 });
 
 app.post("/api/auth/logout", async (c) => {
