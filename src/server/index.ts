@@ -398,7 +398,7 @@ app.post("/api/auth/register", async (c) => {
 
 // ---- Recuperação de senha ----
 const sha256 = (v: string) => crypto.createHash("sha256").update(v).digest("hex");
-const APP_URL = () => (process.env.APP_URL || "https://finanpop.com/app").replace(/\/$/, "");
+const APP_URL = () => (process.env.APP_URL || "https://emprestimofgts.com/app").replace(/\/$/, "");
 
 app.post("/api/auth/forgot-password", async (c) => {
   const { identifier } = await c.req.json().catch(() => ({}));
