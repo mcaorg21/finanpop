@@ -155,6 +155,31 @@ export default function AjudaPage() {
             </p>
           </AccordionContent>
         </AccordionItem>
+
+        {/* IA e WhatsApp */}
+        <AccordionItem value="whatsapp" className="rounded-lg border border-border px-4">
+          <AccordionTrigger className="hover:no-underline">
+            <span className="font-semibold">Lançar pelo WhatsApp com IA (plano Enterprise)</span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3 pt-4 text-sm">
+            <ol className="list-decimal space-y-1 pl-5">
+              <li>Em <strong>Configurações → IA e WhatsApp</strong>, cadastre a sua chave da OpenAI e escolha o modelo.</li>
+              <li>Informe seu telefone com DDD e clique em <strong>Gerar código</strong>.</li>
+              <li>No WhatsApp, envie <strong>VINCULAR 123456</strong> (com o seu código) ao número do FinanPOP.</li>
+              <li>Pronto: mande um texto (“gastei 45,90 no mercado no pix”), um áudio ou a foto de uma nota.</li>
+            </ol>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>O FinanPOP responde com um resumo e os botões <strong>Confirmar</strong> e <strong>Cancelar</strong>; nada é lançado antes da sua confirmação.</li>
+              <li>Faltou categoria ou centro de custo? Ele pergunta e você responde com o número da opção.</li>
+              <li>Para corrigir, basta responder (“foi no cartão”, “é 52,90”). Se a mensagem trouxe uma foto, ela fica anexada ao lançamento.</li>
+              <li>Lançou errado? Envie <strong>desfazer</strong> em até 24 horas e o último lançamento feito pelo WhatsApp é removido.</li>
+            </ul>
+            <p className="border-l-2 border-border pl-3 text-muted-foreground">
+              <strong className="text-foreground">Privacidade:</strong> o texto, o áudio e a imagem enviados são processados pela OpenAI com a chave da sua conta,
+              e o custo é cobrado por ela. A chave fica guardada criptografada e nunca volta a ser exibida. O áudio é descartado após a transcrição.
+            </p>
+          </AccordionContent>
+        </AccordionItem>
       </Accordion>
 
       <Card>

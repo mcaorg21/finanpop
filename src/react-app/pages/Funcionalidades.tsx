@@ -49,6 +49,10 @@ export default function Funcionalidades() {
     {
       title: "Multi-usuário",
       description: "Adicione usuários à sua conta com controle de acesso e permissões personalizadas."
+    },
+    {
+      title: "Lançamento pelo WhatsApp com IA (Enterprise)",
+      description: "Mande um texto, áudio ou a foto de uma nota pelo WhatsApp e a IA prepara o lançamento para você confirmar. Exclusivo do plano Enterprise."
     }
   ];
 

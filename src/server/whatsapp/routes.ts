@@ -37,6 +37,7 @@ const rateLimited = (key: string): boolean => {
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const brDate = (iso: string) => iso.split("-").reverse().join("/");
 const isYes = (t: string) => /^(sim|s|confirmar|confirma|ok|isso|pode)\b/i.test(t.trim());
+const isUndo = (t: string) => /^(desfazer|desfaz|desfa[çc]a|apagar [uú]ltimo|cancelar [uú]ltimo)/i.test(t.trim());
 const isNo = (t: string) => /^(n[aã]o|n|cancelar|cancela)\b/i.test(t.trim());
 
 const verifySignature = (raw: string, header: string | undefined): boolean => {
@@ -130,14 +131,42 @@ const confirmPending = async (to: string, p: PendingRow) => {
     }
     removeMedia(p.media_path);
   }
-  await pool.query("UPDATE whatsapp_pending SET status = 'DONE' WHERE id = $1", [p.id]);
-  await sendText(to, `✅ Lançado! ${d.type === "EXPENSE" ? "Despesa" : "Receita"} de ${brl(d.amount)} registrada${p.media_path ? " com a foto anexada" : ""}.`);
+  await pool.query("UPDATE whatsapp_pending SET status = 'DONE', transaction_id = $2 WHERE id = $1", [p.id, id]);
+  await sendText(to, `✅ Lançado! ${d.type === "EXPENSE" ? "Despesa" : "Receita"} de ${brl(d.amount)} registrada${p.media_path ? " com a foto anexada" : ""}.
+Se foi engano, envie "desfazer".`);
 };
 
 const cancelPending = async (to: string, p: PendingRow) => {
   await pool.query("UPDATE whatsapp_pending SET status = 'CANCELED' WHERE id = $1", [p.id]);
   removeMedia(p.media_path);
   await sendText(to, "Lançamento cancelado. Nada foi registrado.");
+};
+
+/** Apaga o último lançamento feito por este telefone (até 24 h atrás), se ainda existir. */
+const undoLast = async (to: string, key: string) => {
+  const { rows } = await pool.query(
+    `SELECT id, tenant_id, transaction_id FROM whatsapp_pending
+     WHERE phone = $1 AND status = 'DONE' AND transaction_id IS NOT NULL AND undone_at IS NULL
+       AND created_at > NOW() - INTERVAL '24 hours'
+     ORDER BY id DESC LIMIT 1`,
+    [key]
+  );
+  const last = rows[0];
+  if (!last) {
+    await sendText(to, "Não há nenhum lançamento recente seu pelo WhatsApp para desfazer (só vale para as últimas 24 horas).");
+    return;
+  }
+  const { rows: tx } = await pool.query(
+    "DELETE FROM transactions WHERE id = $1 AND tenant_id = $2 RETURNING amount, type, description",
+    [last.transaction_id, last.tenant_id]
+  );
+  await pool.query("UPDATE whatsapp_pending SET undone_at = NOW() WHERE id = $1", [last.id]);
+  if (!tx[0]) {
+    await sendText(to, "Esse lançamento já tinha sido removido no FinanPOP.");
+    return;
+  }
+  const label = tx[0].description ? ` (${tx[0].description})` : "";
+  await sendText(to, `↩️ Desfeito! ${tx[0].type === "EXPENSE" ? "Despesa" : "Receita"} de ${brl(Number(tx[0].amount))}${label} foi removida.`);
 };
 
 const getWaitingPending = async (key: string): Promise<PendingRow | null> => {
@@ -219,6 +248,12 @@ const processMessage = async (msg: WaMessage) => {
   }
 
   const pending = await getWaitingPending(key);
+
+  if (text && isUndo(text)) {
+    // com rascunho aberto, "desfazer" equivale a cancelar; senão apaga o último lançamento
+    if (pending) return cancelPending(to, pending);
+    return undoLast(to, key);
+  }
 
   // botões de confirmação
   const buttonId = msg.type === "interactive" ? msg.interactive?.button_reply?.id : undefined;
