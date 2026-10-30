@@ -371,6 +371,16 @@ export function registerWhatsAppRoutes(app: Hono<any>) {
     try { payload = JSON.parse(raw); } catch { return c.text("Bad request", 400); }
 
     const messages: WaMessage[] = (payload.entry ?? []).flatMap((e: any) => (e.changes ?? []).flatMap((ch: any) => ch.value?.messages ?? []));
+    // A Meta avisa aqui o destino das mensagens que enviamos; sem isso uma falha de entrega some em silêncio.
+    // Registra só o estado e, nas falhas, o código/motivo (sem telefone nem id da mensagem).
+    const statuses: any[] = (payload.entry ?? []).flatMap((e: any) => (e.changes ?? []).flatMap((ch: any) => ch.value?.statuses ?? []));
+    for (const s of statuses) {
+      if (s.status === "failed") {
+        console.error("WhatsApp delivery failed:", JSON.stringify((s.errors ?? []).map((er: any) => ({ code: er.code, title: er.title, details: er.error_data?.details ?? er.message }))));
+      } else {
+        console.log("WhatsApp status:", s.status);
+      }
+    }
     // responde 200 já; o processamento (IA) continua em segundo plano
     void (async () => {
       for (const m of messages) {
