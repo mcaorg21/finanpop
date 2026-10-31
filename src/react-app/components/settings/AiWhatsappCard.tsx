@@ -89,7 +89,7 @@ export default function AiWhatsappCard() {
         <Bot className="size-4" /> IA e WhatsApp
         <Badge variant="outline" className="text-xs">Enterprise</Badge>
       </CardTitle>
-      <CardDescription>Lance despesas mandando texto, áudio ou foto da nota pelo WhatsApp.</CardDescription>
+      <CardDescription>Lance, consulte gastos e veja gráficos pelo WhatsApp, por texto, áudio ou foto da nota.</CardDescription>
     </CardHeader>
   );
 

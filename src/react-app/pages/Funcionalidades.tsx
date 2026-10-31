@@ -51,8 +51,8 @@ export default function Funcionalidades() {
       description: "Adicione usuários à sua conta com controle de acesso e permissões personalizadas."
     },
     {
-      title: "Lançamento pelo WhatsApp com IA (Enterprise)",
-      description: "Mande um texto, áudio ou a foto de uma nota pelo WhatsApp e a IA prepara o lançamento para você confirmar. Exclusivo do plano Enterprise."
+      title: "Assistente financeiro no WhatsApp com IA (Enterprise)",
+      description: "Lance por texto, áudio ou foto de nota, consulte gastos e saldo, veja contas a vencer, receba gráficos em imagem e insights sobre seus gastos, tudo pelo WhatsApp. Exclusivo do plano Enterprise."
     }
   ];
 

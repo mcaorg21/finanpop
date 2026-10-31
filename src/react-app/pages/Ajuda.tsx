@@ -159,7 +159,7 @@ export default function AjudaPage() {
         {/* IA e WhatsApp */}
         <AccordionItem value="whatsapp" className="rounded-lg border border-border px-4">
           <AccordionTrigger className="hover:no-underline">
-            <span className="font-semibold">Lançar pelo WhatsApp com IA (plano Enterprise)</span>
+            <span className="font-semibold">Assistente no WhatsApp: lançar, consultar e ver gráficos (plano Enterprise)</span>
           </AccordionTrigger>
           <AccordionContent className="space-y-3 pt-4 text-sm">
             <ol className="list-decimal space-y-1 pl-5">
@@ -173,6 +173,16 @@ export default function AjudaPage() {
               <li>Faltou categoria ou centro de custo? Ele pergunta e você responde com o número da opção.</li>
               <li>Para corrigir, basta responder (“foi no cartão”, “é 52,90”). Se a mensagem trouxe uma foto, ela fica anexada ao lançamento.</li>
               <li>Lançou errado? Envie <strong>desfazer</strong> em até 24 horas e o último lançamento feito pelo WhatsApp é removido.</li>
+            </ul>
+            <p className="font-medium">O que dá para pedir (envie <strong>oi</strong> ou <strong>menu</strong> para ver a lista no próprio WhatsApp):</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li><strong>Lançar:</strong> “gastei 45,90 no mercado no pix”, “recebi 3.000 de salário”, “boleto da luz 230 vence dia 20”, áudio ou foto da nota.</li>
+              <li><strong>Consultar:</strong> “quanto gastei hoje / essa semana / esse mês / até hoje”, “quanto gastei com mercado”, “resumo do mês”, “meu saldo”, “gastos por categoria”, “maiores gastos da semana”, “comparar com o mês passado”, “últimos lançamentos”, “buscar uber”.</li>
+              <li><strong>Gráficos (imagem):</strong> “gráfico dos últimos 6 meses”, “gráfico por categoria”, “gráfico do mês”.</li>
+              <li><strong>Insights:</strong> “me dê insights do mês”, “onde posso economizar”: projeção de fechamento do mês, o que subiu ou caiu, categoria que mais pesa, gastos que se repetem, contas atrasadas e a vencer.</li>
+              <li><strong>Contas:</strong> “o que vence essa semana”, “contas atrasadas”, “o que tenho a receber”; para dar baixa, “paguei a luz” ou “recebi o aluguel”.</li>
+              <li><strong>Ajustes:</strong> “editar o último”, “excluir uber”. Baixa, edição e exclusão sempre pedem a sua confirmação.</li>
+              <li>Os totais seguem o painel: <strong>gastos</strong> são as despesas pela data do lançamento (pagas e a pagar, mostradas separadas) e a semana vai de segunda a domingo.</li>
             </ul>
             <p className="border-l-2 border-border pl-3 text-muted-foreground">
               <strong className="text-foreground">Privacidade:</strong> o texto, o áudio e a imagem enviados são processados pela OpenAI com a chave da sua conta,
