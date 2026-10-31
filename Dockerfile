@@ -16,6 +16,9 @@ RUN npx tsc -p tsconfig.server.json
 FROM node:20-alpine AS production
 WORKDIR /app
 
+# Fontes para os gráficos do assistente do WhatsApp (o resvg não renderiza texto sem fontes no Alpine)
+RUN apk add --no-cache font-dejavu
+
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 

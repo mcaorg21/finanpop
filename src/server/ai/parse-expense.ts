@@ -32,6 +32,8 @@ export interface ExpenseDraft {
   awaiting?: { field: "category_id" | "home_id"; options: Option[] };
   /** Decisões automáticas que o resumo deve deixar explícitas. */
   assumed: string[];
+  /** Edição de um lançamento existente: confirmar faz UPDATE nele em vez de criar outro. */
+  replace_transaction_id?: number;
 }
 
 export type ParseResult = { ok: true; draft: ExpenseDraft } | { ok: false; reply: string };
@@ -133,7 +135,7 @@ export const parseExpense = async (tenantId: number, ai: TenantAI, input: ParseI
 
   const parts: Part[] = [];
   if (existing) {
-    const { awaiting: _a, assumed: _s, ...current } = existing;
+    const { awaiting: _a, assumed: _s, replace_transaction_id: _r, ...current } = existing;
     parts.push({ type: "text", text: `Lançamento atual (JSON): ${JSON.stringify(current)}\nAplique a CORREÇÃO abaixo mantendo o restante igual.` });
   }
   if (input.text) parts.push({ type: "text", text: input.text });

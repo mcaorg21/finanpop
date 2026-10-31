@@ -5,15 +5,22 @@ import path from "path";
 import pool from "../db.js";
 import { hasEnterprise } from "../lib/plan.js";
 import { phoneKey } from "../lib/phone.js";
-import { UPLOADS_DIR, addAttachment, createTransaction } from "../lib/transactions.js";
+import { todaySP } from "../lib/periods.js";
+import { getTransaction, listTransactions } from "../lib/reports.js";
+import { UPLOADS_DIR, addAttachment, createTransaction, deleteTransaction, setTransactionStatus, updateTransaction } from "../lib/transactions.js";
 import { OpenAIError, getTenantAI, transcribeAudio, type TenantAI } from "../ai/openai.js";
 import { PAYMENT_LABELS, draftLabels, parseExpense, type ExpenseDraft } from "../ai/parse-expense.js";
-import { downloadMedia, sendButtons, sendText } from "./client.js";
+import { understandMessage, type Understood } from "../ai/understand.js";
+import { runQuery, shortcutQuery, type Env, type Out } from "./assistant.js";
+import { downloadMedia, sendButtons, sendImage, sendList, sendText, uploadMedia } from "./client.js";
+import { brDate, brl, txLine, type TxLine } from "./format.js";
+import { MENU_TEXT, SESSION_HINT, SHORTCUTS, SHORTCUTS_BODY, isGreeting, touchSession } from "./menu.js";
 
 const MAX_IMAGE = 10 * 1024 * 1024;
 const MAX_AUDIO = 5 * 1024 * 1024;
 const PENDING_MINUTES = 30;
 const RATE_LIMIT = 20; // mensagens por minuto, por telefone
+const EDIT_WINDOW_DAYS = 7;
 
 interface WaMessage {
   id: string;
@@ -22,8 +29,26 @@ interface WaMessage {
   text?: { body: string };
   audio?: { id: string; mime_type?: string };
   image?: { id: string; mime_type?: string; caption?: string };
-  interactive?: { type: string; button_reply?: { id: string; title: string } };
+  interactive?: {
+    type: string;
+    button_reply?: { id: string; title: string };
+    list_reply?: { id: string; title: string; description?: string };
+  };
 }
+
+/** Estado de uma conversa guardado em whatsapp_pending.draft (JSONB). Linhas antigas (sem `kind`) são rascunhos de lançamento. */
+interface PickDraft {
+  kind: "PICK";
+  action: "DELETE" | "MARK_PAID";
+  options: { id: number; label: string }[];
+}
+interface ConfirmDraft {
+  kind: "CONFIRM_DELETE" | "CONFIRM_STATUS";
+  transaction_id: number;
+  status?: "PAID";
+}
+type PendingDraft = ExpenseDraft | PickDraft | ConfirmDraft;
+const isLaunch = (d: PendingDraft): d is ExpenseDraft => !("kind" in d);
 
 const hits = new Map<string, number[]>();
 const rateLimited = (key: string): boolean => {
@@ -34,10 +59,8 @@ const rateLimited = (key: string): boolean => {
   return list.length > RATE_LIMIT;
 };
 
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const brDate = (iso: string) => iso.split("-").reverse().join("/");
 const isYes = (t: string) => /^(sim|s|confirmar|confirma|ok|isso|pode)\b/i.test(t.trim());
-const isUndo = (t: string) => /^(desfazer|desfaz|desfa[çc]a|apagar [uú]ltimo|cancelar [uú]ltimo)/i.test(t.trim());
+const isUndo = (t: string) => /^(desfazer|desfaz|desfa[çc]a|apagar [uú]ltimo|cancelar [uú]ltimo)/i.test(t.trim());
 const isNo = (t: string) => /^(n[aã]o|n|cancelar|cancela)\b/i.test(t.trim());
 
 const verifySignature = (raw: string, header: string | undefined): boolean => {
@@ -48,10 +71,49 @@ const verifySignature = (raw: string, header: string | undefined): boolean => {
   return got.length === expected.length && timingSafeEqual(got, expected);
 };
 
+/** Contexto de uma mensagem já autenticada (telefone vinculado, plano Enterprise, dentro do limite). */
+interface Ctx {
+  to: string;
+  key: string;
+  userId: number;
+  tenantId: number;
+  env: Env;
+  /** Primeira mensagem de uma conversa nova: ganha a dica do menu no fim. */
+  newSession: boolean;
+  menuShown: boolean;
+}
+
+const sendMenu = async (c: Ctx) => {
+  c.menuShown = true;
+  await sendText(c.to, MENU_TEXT);
+  await sendList(c.to, SHORTCUTS_BODY, "Atalhos", "Atalhos", SHORTCUTS);
+};
+
+const hint = async (c: Ctx) => {
+  if (c.newSession && !c.menuShown) await sendText(c.to, SESSION_HINT.trim());
+};
+
+const sendOuts = async (to: string, outs: Out[]) => {
+  for (const o of outs) {
+    if (o.kind === "text") {
+      await sendText(to, o.text);
+      continue;
+    }
+    try {
+      const id = await uploadMedia(o.png, "image/png", "grafico.png");
+      const r = await sendImage(to, id, o.caption);
+      if (!r.ok) await sendText(to, o.fallback);
+    } catch (e) {
+      console.error("WhatsApp image error:", e instanceof Error ? e.message : e);
+      await sendText(to, o.fallback);
+    }
+  }
+};
+
 const summary = async (tenantId: number, d: ExpenseDraft): Promise<string> => {
   const { category, home } = await draftLabels(tenantId, d);
   const lines = [
-    "📝 Confirma este lançamento?",
+    d.replace_transaction_id ? "✏️ Confirma a alteração deste lançamento?" : "📝 Confirma este lançamento?",
     "",
     `${d.type === "EXPENSE" ? "Despesa" : "Receita"} · ${brl(d.amount)}`,
     `Categoria: ${category}`,
@@ -69,7 +131,7 @@ interface PendingRow {
   id: number;
   tenant_id: number;
   user_id: number;
-  draft: ExpenseDraft;
+  draft: PendingDraft;
   media_path: string | null;
   media_type: string | null;
 }
@@ -92,8 +154,7 @@ const removeMedia = (mediaPath: string | null) => {
   try { fs.unlinkSync(path.join(UPLOADS_DIR, mediaPath)); } catch { /* já removido */ }
 };
 
-const confirmPending = async (to: string, p: PendingRow) => {
-  const d = p.draft;
+const confirmLaunch = async (to: string, p: PendingRow, d: ExpenseDraft) => {
   if (d.awaiting || !d.category_id || !d.home_id) {
     await askNext(to, p, d);
     return;
@@ -106,6 +167,24 @@ const confirmPending = async (to: string, p: PendingRow) => {
   if (!cat.rows[0] || !home.rows[0]) {
     await pool.query("UPDATE whatsapp_pending SET status = 'CANCELED' WHERE id = $1", [p.id]);
     await sendText(to, "A categoria ou o centro de custo não existe mais. Envie o lançamento novamente.");
+    return;
+  }
+  if (d.replace_transaction_id) {
+    const ok = await updateTransaction(p.tenant_id, d.replace_transaction_id, {
+      date: d.date,
+      type: d.type,
+      amount: d.amount,
+      home_id: d.home_id,
+      category_id: d.category_id,
+      payment_method: d.payment_method,
+      status: d.status,
+      description: d.description || null,
+      due_date: d.due_date,
+      payment_date: d.payment_date,
+    });
+    // sem transaction_id: "desfazer" não deve apagar um lançamento que apenas foi editado
+    await pool.query("UPDATE whatsapp_pending SET status = 'DONE' WHERE id = $1", [p.id]);
+    await sendText(to, ok ? `✅ Lançamento atualizado: ${d.type === "EXPENSE" ? "despesa" : "receita"} de ${brl(d.amount)}.` : "Esse lançamento não existe mais no FinanPOP.");
     return;
   }
   const id = await createTransaction(p.tenant_id, {
@@ -136,10 +215,34 @@ const confirmPending = async (to: string, p: PendingRow) => {
 Se foi engano, envie "desfazer".`);
 };
 
+const confirmPending = async (c: Ctx, p: PendingRow) => {
+  const d = p.draft;
+  if (isLaunch(d)) return confirmLaunch(c.to, p, d);
+  if (d.kind === "CONFIRM_DELETE") {
+    const gone = await deleteTransaction(p.tenant_id, d.transaction_id);
+    await pool.query("UPDATE whatsapp_pending SET status = 'DONE' WHERE id = $1", [p.id]);
+    await sendText(c.to, gone ? `🗑️ Excluído! ${gone.type === "EXPENSE" ? "Despesa" : "Receita"} de ${brl(gone.amount)}${gone.description ? ` (${gone.description})` : ""} foi removida.` : "Esse lançamento já tinha sido removido no FinanPOP.");
+    return;
+  }
+  if (d.kind === "CONFIRM_STATUS") {
+    const tx = await getTransaction(p.tenant_id, d.transaction_id);
+    const ok = tx ? await setTransactionStatus(p.tenant_id, d.transaction_id, "PAID", c.env.today) : false;
+    await pool.query("UPDATE whatsapp_pending SET status = 'DONE' WHERE id = $1", [p.id]);
+    if (!tx || !ok) {
+      await sendText(c.to, "Essa conta não existe mais no FinanPOP.");
+      return;
+    }
+    await sendText(c.to, `✅ Baixa feita! ${tx.type === "EXPENSE" ? "Conta paga" : "Recebimento registrado"}: ${brl(tx.amount)}${tx.description ? ` (${tx.description})` : ""} em ${brDate(c.env.today)}.`);
+    return;
+  }
+  // PICK não se confirma por botão: pede o número
+  await sendText(c.to, "Responda com o número da opção, ou envie \"cancelar\".");
+};
+
 const cancelPending = async (to: string, p: PendingRow) => {
   await pool.query("UPDATE whatsapp_pending SET status = 'CANCELED' WHERE id = $1", [p.id]);
   removeMedia(p.media_path);
-  await sendText(to, "Lançamento cancelado. Nada foi registrado.");
+  await sendText(to, isLaunch(p.draft) ? "Lançamento cancelado. Nada foi registrado." : "Ok, cancelado. Nada foi alterado.");
 };
 
 /** Apaga o último lançamento feito por este telefone (até 24 h atrás), se ainda existir. */
@@ -156,17 +259,14 @@ const undoLast = async (to: string, key: string) => {
     await sendText(to, "Não há nenhum lançamento recente seu pelo WhatsApp para desfazer (só vale para as últimas 24 horas).");
     return;
   }
-  const { rows: tx } = await pool.query(
-    "DELETE FROM transactions WHERE id = $1 AND tenant_id = $2 RETURNING amount, type, description",
-    [last.transaction_id, last.tenant_id]
-  );
+  const tx = await deleteTransaction(last.tenant_id, last.transaction_id);
   await pool.query("UPDATE whatsapp_pending SET undone_at = NOW() WHERE id = $1", [last.id]);
-  if (!tx[0]) {
+  if (!tx) {
     await sendText(to, "Esse lançamento já tinha sido removido no FinanPOP.");
     return;
   }
-  const label = tx[0].description ? ` (${tx[0].description})` : "";
-  await sendText(to, `↩️ Desfeito! ${tx[0].type === "EXPENSE" ? "Despesa" : "Receita"} de ${brl(Number(tx[0].amount))}${label} foi removida.`);
+  const label = tx.description ? ` (${tx.description})` : "";
+  await sendText(to, `↩️ Desfeito! ${tx.type === "EXPENSE" ? "Despesa" : "Receita"} de ${brl(tx.amount)}${label} foi removida.`);
 };
 
 const getWaitingPending = async (key: string): Promise<PendingRow | null> => {
@@ -177,15 +277,125 @@ const getWaitingPending = async (key: string): Promise<PendingRow | null> => {
   return rows[0] ?? null;
 };
 
-const savePending = async (key: string, tenantId: number, userId: number, draft: ExpenseDraft, media?: { path: string; type: string } | null) => {
-  // uma pendência por vez: a anterior é descartada
-  const { rows: old } = await pool.query("UPDATE whatsapp_pending SET status = 'CANCELED' WHERE phone = $1 AND status = 'WAITING' RETURNING media_path", [key]);
-  old.forEach((o: any) => removeMedia(o.media_path));
+const insertPending = async (key: string, tenantId: number, userId: number, draft: PendingDraft, media?: { path: string; type: string } | null) => {
   const { rows } = await pool.query(
     "INSERT INTO whatsapp_pending (tenant_id, user_id, phone, draft, media_path, media_type, status, expires_at) VALUES ($1,$2,$3,$4,$5,$6,'WAITING', NOW() + ($7 || ' minutes')::interval) RETURNING id",
     [tenantId, userId, key, JSON.stringify(draft), media?.path ?? null, media?.type ?? null, String(PENDING_MINUTES)]
   );
   return rows[0].id as number;
+};
+
+const savePending = async (key: string, tenantId: number, userId: number, draft: PendingDraft, media?: { path: string; type: string } | null) => {
+  // uma pendência por vez: a anterior é descartada
+  const { rows: old } = await pool.query("UPDATE whatsapp_pending SET status = 'CANCELED' WHERE phone = $1 AND status = 'WAITING' RETURNING media_path", [key]);
+  old.forEach((o: any) => removeMedia(o.media_path));
+  return insertPending(key, tenantId, userId, draft, media);
+};
+
+// ---------- baixa, exclusão e edição (sempre com confirmação) ----------
+
+const WIDE = { start: "1970-01-01", end: "2999-12-31", dateField: "date" as const };
+
+const confirmButtons = (id: number) => [
+  { id: `confirm:${id}`, title: "Confirmar" },
+  { id: `cancel:${id}`, title: "Cancelar" },
+];
+
+/** Pede a confirmação de uma ação sobre um lançamento já escolhido. */
+const askConfirm = async (c: Ctx, kind: "CONFIRM_DELETE" | "CONFIRM_STATUS", txId: number) => {
+  const tx = await getTransaction(c.tenantId, txId);
+  if (!tx) {
+    await sendText(c.to, "Não encontrei esse lançamento (talvez já tenha sido removido).");
+    return;
+  }
+  const draft: ConfirmDraft = kind === "CONFIRM_DELETE" ? { kind, transaction_id: txId } : { kind, transaction_id: txId, status: "PAID" };
+  const id = await savePending(c.key, c.tenantId, c.userId, draft);
+  const line = txLine(tx as TxLine, c.env.today);
+  const body =
+    kind === "CONFIRM_DELETE"
+      ? `🗑️ Excluir este lançamento?\n\n${line}\n\nEsta ação não pode ser desfeita.`
+      : `✅ Dar baixa nesta conta?\n\n${line}\n\nVou marcar como ${tx.type === "EXPENSE" ? "paga" : "recebida"} em ${brDate(c.env.today)}.`;
+  await sendButtons(c.to, body, confirmButtons(id));
+};
+
+/** Vários candidatos: lista numerada. */
+const askPick = async (c: Ctx, action: PickDraft["action"], rows: Awaited<ReturnType<typeof listTransactions>>) => {
+  const options = rows.map((r) => ({ id: r.id, label: txLine(r as TxLine, c.env.today) }));
+  await savePending(c.key, c.tenantId, c.userId, { kind: "PICK", action, options });
+  const what = action === "DELETE" ? "excluir" : "dar baixa";
+  await sendText(c.to, `Encontrei mais de um. Qual você quer ${what}? Responda com o número:\n\n${options.map((o, i) => `${i + 1}) ${o.label.replace(/^• /, "")}`).join("\n")}\n\n(ou "cancelar")`);
+};
+
+/** true se tratou; false quando não há conta pendente e a frase deve virar um lançamento novo. */
+const startMarkPaid = async (c: Ctx, u: Extract<Understood, { kind: "MARK_PAID" }>): Promise<boolean> => {
+  const rows = await listTransactions(
+    { tenantId: c.tenantId, today: c.env.today, ...WIDE, status: "PENDING", type: u.type, q: u.q, amount: u.amount },
+    "due_asc",
+    10
+  );
+  if (rows.length === 0) {
+    if (u.amount) return false; // "paguei a luz 230" sem conta cadastrada: é um gasto novo
+    await sendText(c.to, `Não achei conta pendente${u.q ? ` com "${u.q}"` : ""}. Se foi um gasto novo, envie com o valor, por exemplo: *paguei a luz 230*.`);
+    return true;
+  }
+  if (rows.length === 1) await askConfirm(c, "CONFIRM_STATUS", rows[0].id);
+  else await askPick(c, "MARK_PAID", rows);
+  return true;
+};
+
+const startDelete = async (c: Ctx, u: Extract<Understood, { kind: "DELETE" }>) => {
+  if (!u.q && !u.amount) {
+    await sendText(c.to, "Qual lançamento excluir? Diga o que é, por exemplo: *excluir uber* ou *excluir mercado 45,90*. Para o último, envie *desfazer*.");
+    return;
+  }
+  const rows = await listTransactions({ tenantId: c.tenantId, today: c.env.today, ...WIDE, q: u.q, amount: u.amount }, "date_desc", 10);
+  if (rows.length === 0) await sendText(c.to, `Não encontrei lançamento${u.q ? ` com "${u.q}"` : ""}${u.amount ? ` de ${brl(u.amount)}` : ""}.`);
+  else if (rows.length === 1) await askConfirm(c, "CONFIRM_DELETE", rows[0].id);
+  else await askPick(c, "DELETE", rows);
+};
+
+/** Reabre o último lançamento feito pelo WhatsApp como rascunho; o fluxo de correção edita e confirmar faz UPDATE. */
+const startEdit = async (c: Ctx, ai: TenantAI, instruction: string | null) => {
+  const { rows } = await pool.query(
+    `SELECT transaction_id FROM whatsapp_pending
+     WHERE phone = $1 AND status = 'DONE' AND transaction_id IS NOT NULL AND undone_at IS NULL
+       AND created_at > NOW() - ($2 || ' days')::interval
+     ORDER BY id DESC LIMIT 1`,
+    [c.key, String(EDIT_WINDOW_DAYS)]
+  );
+  const txId = rows[0]?.transaction_id as number | undefined;
+  const { rows: tx } = txId
+    ? await pool.query(
+        `SELECT type, amount::float AS amount, to_char(date,'YYYY-MM-DD') AS date, COALESCE(description,'') AS description, category_id, home_id,
+                payment_method, status, to_char(due_date,'YYYY-MM-DD') AS due_date, to_char(payment_date,'YYYY-MM-DD') AS payment_date
+         FROM transactions WHERE id = $1 AND tenant_id = $2`,
+        [txId, c.tenantId]
+      )
+    : { rows: [] as any[] };
+  if (!txId || !tx[0]) {
+    await sendText(c.to, `Não encontrei um lançamento seu pelo WhatsApp dos últimos ${EDIT_WINDOW_DAYS} dias para editar.`);
+    return;
+  }
+  let draft: ExpenseDraft = { ...tx[0], assumed: [], replace_transaction_id: txId };
+  if (instruction) {
+    const r = await parseExpense(c.tenantId, ai, { text: instruction }, draft);
+    if (!r.ok) {
+      await sendText(c.to, r.reply);
+      return;
+    }
+    draft = { ...r.draft, replace_transaction_id: txId };
+  }
+  const id = await savePending(c.key, c.tenantId, c.userId, draft);
+  await askNext(c.to, { id, tenant_id: c.tenantId }, draft);
+};
+
+const handlePick = async (c: Ctx, p: PendingRow, d: PickDraft, n: number) => {
+  const opt = d.options[n - 1];
+  if (!opt) {
+    await sendText(c.to, "Número inválido. Responda com um dos números da lista.");
+    return;
+  }
+  await askConfirm(c, d.action === "DELETE" ? "CONFIRM_DELETE" : "CONFIRM_STATUS", opt.id);
 };
 
 const handleLinkCode = async (to: string, key: string, text: string): Promise<boolean> => {
@@ -210,7 +420,9 @@ const handleLinkCode = async (to: string, key: string, text: string): Promise<bo
     await sendText(to, "Este telefone já está vinculado a outro usuário.");
     return true;
   }
-  await sendText(to, "✅ WhatsApp vinculado ao FinanPOP! Agora é só me mandar despesas por texto, áudio ou foto da nota. Ex.: \"gastei 45,90 no mercado no pix\".");
+  await sendText(to, "✅ WhatsApp vinculado ao FinanPOP!");
+  await sendText(to, MENU_TEXT);
+  await sendList(to, SHORTCUTS_BODY, "Atalhos", "Atalhos", SHORTCUTS);
   return true;
 };
 
@@ -234,20 +446,27 @@ const processMessage = async (msg: WaMessage) => {
   const tenantId = link.tenant_id as number;
 
   if (!(await hasEnterprise(tenantId))) {
-    await sendText(to, "Lançar despesas pelo WhatsApp é um recurso exclusivo do plano Enterprise do FinanPOP.");
+    await sendText(to, "O assistente do FinanPOP no WhatsApp (lançar, consultar, gráficos) é um recurso exclusivo do plano Enterprise.");
     return;
   }
+  const c: Ctx = { to, key, userId: link.user_id, tenantId, env: { tenantId, today: todaySP() }, newSession: touchSession(key), menuShown: false };
   if (rateLimited(key)) {
     await sendText(to, "Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.");
     return;
   }
-  const ai = await getTenantAI(tenantId);
-  if (!ai) {
-    await sendText(to, "Falta cadastrar a chave da OpenAI em Configurações → IA e WhatsApp no FinanPOP.");
-    return;
+
+  // ---- respostas que não precisam da OpenAI: atalhos, botões, escolhas numéricas, menu, desfazer ----
+  const listId = msg.type === "interactive" ? msg.interactive?.list_reply?.id : undefined;
+  if (listId) {
+    const q = shortcutQuery(listId, c.env);
+    if (!q) return sendMenu(c);
+    await sendOuts(to, await runQuery(c.env, q));
+    return hint(c);
   }
 
   const pending = await getWaitingPending(key);
+
+  if (text && isGreeting(text)) return sendMenu(c);
 
   if (text && isUndo(text)) {
     // com rascunho aberto, "desfazer" equivale a cancelar; senão apaga o último lançamento
@@ -255,28 +474,30 @@ const processMessage = async (msg: WaMessage) => {
     return undoLast(to, key);
   }
 
-  // botões de confirmação
   const buttonId = msg.type === "interactive" ? msg.interactive?.button_reply?.id : undefined;
   if (buttonId) {
     const [action, id] = buttonId.split(":");
     if (!pending || String(pending.id) !== id) {
-      await sendText(to, "Esse lançamento já foi tratado ou expirou. Envie novamente.");
+      await sendText(to, "Essa ação já foi tratada ou expirou. Envie novamente.");
       return;
     }
-    if (action === "confirm") await confirmPending(to, pending);
+    if (action === "confirm") await confirmPending(c, pending);
     else await cancelPending(to, pending);
     return;
   }
 
   if (pending && text) {
+    const d = pending.draft;
+    const digits = /^\d{1,2}$/.test(text.trim()) ? parseInt(text.trim(), 10) : null;
+    if (!isLaunch(d) && d.kind === "PICK" && digits !== null) return handlePick(c, pending, d, digits);
     // escolha numerada de categoria / centro de custo
-    if (pending.draft.awaiting && /^\d{1,2}$/.test(text.trim())) {
-      const opt = pending.draft.awaiting.options[parseInt(text.trim(), 10) - 1];
+    if (isLaunch(d) && d.awaiting && digits !== null) {
+      const opt = d.awaiting.options[digits - 1];
       if (!opt) {
         await sendText(to, "Número inválido. Responda com um dos números da lista.");
         return;
       }
-      const draft: ExpenseDraft = { ...pending.draft, [pending.draft.awaiting.field]: opt.id, awaiting: undefined };
+      const draft: ExpenseDraft = { ...d, [d.awaiting.field]: opt.id, awaiting: undefined };
       if (!draft.home_id) {
         const { rows } = await pool.query("SELECT id, name FROM homes WHERE tenant_id = $1 ORDER BY name LIMIT 10", [tenantId]);
         draft.awaiting = { field: "home_id", options: rows.map((h: any) => ({ id: h.id, label: h.name })) };
@@ -285,15 +506,38 @@ const processMessage = async (msg: WaMessage) => {
       await askNext(to, pending, draft);
       return;
     }
-    if (!pending.draft.awaiting && isYes(text)) return confirmPending(to, pending);
+    const open = isLaunch(d) ? !d.awaiting : d.kind !== "PICK";
+    if (open && isYes(text)) return confirmPending(c, pending);
     if (isNo(text)) return cancelPending(to, pending);
   }
 
-  await interpret(to, key, link.user_id, tenantId, ai, msg, pending);
+  if (msg.type !== "text" && msg.type !== "audio" && msg.type !== "image") {
+    await sendText(to, "Entendo texto, áudio e foto de nota ou comprovante. Envie *menu* para ver o que posso fazer.");
+    return;
+  }
+
+  // ---- daqui em diante precisa da chave OpenAI do tenant ----
+  const ai = await getTenantAI(tenantId);
+  if (!ai) {
+    await sendText(to, "Para entender mensagens livres, áudios e fotos falta cadastrar a chave da OpenAI em Configurações → IA e WhatsApp no FinanPOP. Os atalhos do *menu* funcionam sem ela.");
+    if (!c.menuShown) await sendList(to, SHORTCUTS_BODY, "Atalhos", "Atalhos", SHORTCUTS);
+    return;
+  }
+  await interpret(c, ai, msg, pending);
 };
 
-/** Texto, áudio ou imagem → rascunho → pergunta/resumo. Com pendência aberta, o texto vira correção. */
-const interpret = async (to: string, key: string, userId: number, tenantId: number, ai: TenantAI, msg: WaMessage, pending: PendingRow | null) => {
+/** Resumo mínimo do rascunho para o LLM decidir se a mensagem é uma correção. */
+const slim = (d: ExpenseDraft) => JSON.stringify({ type: d.type, amount: d.amount, date: d.date, description: d.description, category_id: d.category_id, home_id: d.home_id, payment_method: d.payment_method, status: d.status, due_date: d.due_date });
+
+const friendlyOpenAIError = (e: OpenAIError): string => {
+  if (e.status === 401) return "A chave da OpenAI foi recusada. Atualize em Configurações → IA e WhatsApp.";
+  if (e.status === 429) return "Sua conta da OpenAI recusou o pedido (limite de uso ou falta de crédito). Confira em platform.openai.com → Billing e tente de novo. Os atalhos do *menu* continuam funcionando.";
+  return "Não consegui falar com a IA agora. Tente novamente em instantes.";
+};
+
+/** Texto, áudio ou imagem: classifica a intenção (consulta, baixa, exclusão...) ou vira rascunho de lançamento. */
+const interpret = async (c: Ctx, ai: TenantAI, msg: WaMessage, pending: PendingRow | null) => {
+  const { to, key, userId, tenantId } = c;
   let text = msg.type === "text" ? msg.text?.body ?? "" : "";
   let imageDataUrl: string | undefined;
   let media: { path: string; type: string } | null = null;
@@ -316,39 +560,70 @@ const interpret = async (to: string, key: string, userId: number, tenantId: numb
       fs.mkdirSync(path.dirname(path.join(UPLOADS_DIR, rel)), { recursive: true });
       fs.writeFileSync(path.join(UPLOADS_DIR, rel), buffer);
       media = { path: rel, type: mime };
-    } else if (msg.type !== "text") {
-      await sendText(to, "Envie a despesa por texto, áudio ou foto da nota fiscal/comprovante.");
-      return;
     }
 
-    const correcting = pending && !pending.draft.awaiting && !imageDataUrl ? pending.draft : undefined;
+    // rascunho de lançamento aberto e sem pergunta pendente: a mensagem pode ser uma correção dele
+    const openDraft = pending && isLaunch(pending.draft) && !pending.draft.awaiting ? pending.draft : null;
+    let correcting: ExpenseDraft | undefined;
+
+    if (!imageDataUrl) {
+      if (!text.trim() || isGreeting(text)) return sendMenu(c);
+      const u = await understandMessage(tenantId, ai, text, { pendingDraft: openDraft ? slim(openDraft) : null });
+      // escolha/confirmação antiga de outra ação não deve ficar viva depois de um pedido novo
+      if (pending && !isLaunch(pending.draft)) await pool.query("UPDATE whatsapp_pending SET status = 'CANCELED' WHERE id = $1", [pending.id]);
+
+      switch (u.kind) {
+        case "QUERY":
+          await sendOuts(to, await runQuery(c.env, u.query));
+          return hint(c);
+        case "UNDO":
+          return undoLast(to, key);
+        case "HELP":
+          return sendMenu(c);
+        case "OTHER":
+          if (!u.reply) {
+            await sendText(to, "Não entendi o que você quis dizer. Veja o que posso fazer:");
+            return sendMenu(c);
+          }
+          await sendText(to, u.reply);
+          return hint(c);
+        case "DELETE":
+          await startDelete(c, u);
+          return;
+        case "EDIT_LAST":
+          return startEdit(c, ai, u.instruction);
+        case "MARK_PAID":
+          if (await startMarkPaid(c, u)) return;
+          break; // sem conta pendente e com valor: segue como lançamento novo
+        case "CORRECTION":
+          correcting = openDraft ?? undefined;
+          break;
+        case "LAUNCH":
+          break;
+      }
+    }
+
     const result = await parseExpense(tenantId, ai, { text, imageDataUrl }, correcting);
     if (!result.ok) {
       removeMedia(media?.path ?? null);
       await sendText(to, result.reply);
+      if (!imageDataUrl) await sendText(to, "Envie *menu* para ver tudo que posso fazer.");
       return;
     }
-    // correção mantém a foto já anexada à pendência
+    // correção mantém a foto já anexada à pendência e o lançamento que está sendo editado
     const keepMedia = correcting && pending?.media_path ? { path: pending.media_path, type: pending.media_type || "image/jpeg" } : media;
+    const draft: ExpenseDraft = correcting?.replace_transaction_id ? { ...result.draft, replace_transaction_id: correcting.replace_transaction_id } : result.draft;
     if (correcting) await pool.query("UPDATE whatsapp_pending SET status = 'CANCELED' WHERE id = $1", [pending!.id]);
-    const id = await (async () => {
-      if (correcting) {
-        const { rows } = await pool.query(
-          "INSERT INTO whatsapp_pending (tenant_id, user_id, phone, draft, media_path, media_type, status, expires_at) VALUES ($1,$2,$3,$4,$5,$6,'WAITING', NOW() + ($7 || ' minutes')::interval) RETURNING id",
-          [tenantId, userId, key, JSON.stringify(result.draft), keepMedia?.path ?? null, keepMedia?.type ?? null, String(PENDING_MINUTES)]
-        );
-        return rows[0].id as number;
-      }
-      return savePending(key, tenantId, userId, result.draft, keepMedia);
-    })();
-    await askNext(to, { id, tenant_id: tenantId }, result.draft);
+    const id = correcting ? await insertPending(key, tenantId, userId, draft, keepMedia) : await savePending(key, tenantId, userId, draft, keepMedia);
+    await askNext(to, { id, tenant_id: tenantId }, draft);
+    await hint(c);
   } catch (e) {
     removeMedia(media?.path ?? null);
     if (e instanceof Error && e.message === "MEDIA_TOO_LARGE") {
       await sendText(to, "Arquivo muito grande. Envie imagens de até 10 MB e áudios de até 5 MB.");
     } else if (e instanceof OpenAIError) {
-      console.error("WhatsApp OpenAI error:", e.message);
-      await sendText(to, e.status === 401 ? "A chave da OpenAI foi recusada. Atualize em Configurações → IA e WhatsApp." : `Erro na OpenAI: ${e.message}`);
+      console.error("WhatsApp OpenAI error:", e.status, e.message);
+      await sendText(to, friendlyOpenAIError(e));
     } else {
       console.error("WhatsApp interpret error:", e);
       await sendText(to, "Não consegui processar sua mensagem agora. Tente novamente em instantes.");
