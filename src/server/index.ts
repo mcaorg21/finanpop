@@ -12,6 +12,8 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import { createTransaction, UPLOADS_DIR } from "./lib/transactions.js";
+import { issueSession, peekSessionId, verifySession, SESSION_TTL_SECONDS } from "./lib/session.js";
+import { checkTenantRefs } from "./lib/tenant-refs.js";
 import { registerIntegrationRoutes } from "./integrations.js";
 import { registerWhatsAppRoutes } from "./whatsapp/routes.js";
 
@@ -20,6 +22,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 type Variables = {
   currentUser: UserInfo;
   tenantId: number;
+  adminId?: number;
 };
 
 const app = new Hono<{ Variables: Variables }>();
@@ -34,14 +37,26 @@ type UserInfo = {
 const SESSION_COOKIE = "secretaria_session";
 const ADMIN_SESSION_COOKIE = "secretaria_admin_session";
 
+// Cookie de sessão assinado (ver lib/session.ts). O id do cookie só serve para achar a conta;
+// quem autentica é a assinatura, que depende do hash de senha atual da conta.
+const sessionCookieOptions = {
+  httpOnly: true,
+  path: "/",
+  sameSite: "None",
+  secure: true,
+  maxAge: SESSION_TTL_SECONDS,
+} as const;
+
 const getCurrentUser = async (sessionCookie: string | undefined): Promise<UserInfo | null> => {
-  if (!sessionCookie) return null;
-  const userId = sessionCookie.replace("user_", "");
+  const claimedId = peekSessionId("user", sessionCookie);
+  if (claimedId === null) return null;
   const { rows } = await pool.query(
-    "SELECT id, name, username, tenant_id FROM users WHERE id = $1 AND is_active = true",
-    [userId]
+    "SELECT id, name, username, tenant_id, password FROM users WHERE id = $1 AND is_active = true",
+    [claimedId]
   );
-  return rows[0] || null;
+  const row = rows[0];
+  if (!row || verifySession("user", sessionCookie, row.password) !== row.id) return null;
+  return { id: row.id, name: row.name, username: row.username, tenant_id: row.tenant_id };
 };
 
 const authMiddleware = async (c: any, next: any) => {
@@ -55,13 +70,15 @@ const authMiddleware = async (c: any, next: any) => {
 
 const adminAuthMiddleware = async (c: any, next: any) => {
   const session = getCookie(c, ADMIN_SESSION_COOKIE);
-  if (!session) return c.json({ error: "Não autorizado" }, 401);
-  const adminId = session.replace("admin_", "");
+  const claimedId = peekSessionId("admin", session);
+  if (claimedId === null) return c.json({ error: "Não autorizado" }, 401);
   const { rows } = await pool.query(
-    "SELECT id, name, email FROM admins WHERE id = $1 AND is_active = true",
-    [adminId]
+    "SELECT id, password FROM admins WHERE id = $1 AND is_active = true",
+    [claimedId]
   );
-  if (!rows[0]) return c.json({ error: "Não autorizado" }, 401);
+  const admin = rows[0];
+  if (!admin || verifySession("admin", session, admin.password) !== admin.id) return c.json({ error: "Não autorizado" }, 401);
+  c.set("adminId", admin.id);
   await next();
 };
 
@@ -136,17 +153,13 @@ app.post("/api/auth/login", async (c) => {
       return c.json({ error: `Usuário ou senha inválidos. ${left === 1 ? "Resta 1 tentativa" : `Restam ${left} tentativas`} antes do bloqueio.` }, 401);
     }
     if (user.failed_attempts) await pool.query("UPDATE users SET failed_attempts = 0 WHERE id = $1", [user.id]);
+    let passwordHash: string = user.password;
     if (legacy) {
       const newHash = await hashPassword(password);
       await pool.query("UPDATE users SET password = $1 WHERE id = $2", [newHash, user.id]);
+      passwordHash = newHash;
     }
-    setCookie(c, SESSION_COOKIE, `user_${user.id}`, {
-      httpOnly: true,
-      path: "/",
-      sameSite: "None",
-      secure: true,
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    setCookie(c, SESSION_COOKIE, issueSession("user", user.id, passwordHash), sessionCookieOptions);
     return c.json({
       success: true,
       user: {
@@ -245,17 +258,13 @@ app.post("/api/admin/login", async (c) => {
   if (admin) {
     const { valid, legacy } = await verifyPassword(password, admin.password);
     if (!valid) return c.json({ error: "Email ou senha inválidos" }, 401);
+    let passwordHash: string = admin.password;
     if (legacy) {
       const newHash = await hashPassword(password);
       await pool.query("UPDATE admins SET password = $1 WHERE id = $2", [newHash, admin.id]);
+      passwordHash = newHash;
     }
-    setCookie(c, ADMIN_SESSION_COOKIE, `admin_${admin.id}`, {
-      httpOnly: true,
-      path: "/",
-      sameSite: "None",
-      secure: true,
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    setCookie(c, ADMIN_SESSION_COOKIE, issueSession("admin", admin.id, passwordHash), sessionCookieOptions);
     return c.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email } });
   }
   return c.json({ error: "Email ou senha inválidos" }, 401);
@@ -267,8 +276,7 @@ app.post("/api/admin/logout", async (c) => {
 });
 
 app.get("/api/admin/me", adminAuthMiddleware, async (c) => {
-  const session = getCookie(c, ADMIN_SESSION_COOKIE);
-  const adminId = session?.replace("admin_", "");
+  const adminId = c.get("adminId");
   const { rows } = await pool.query("SELECT id, name, email FROM admins WHERE id = $1", [adminId]);
   if (rows[0]) return c.json(rows[0]);
   return c.json({ error: "Admin não encontrado" }, 404);
@@ -630,10 +638,15 @@ app.put("/api/users/:id", authMiddleware, async (c) => {
   if (existing[0]) return c.json({ error: "Este login já está em uso" }, 400);
 
   if (password) {
+    const newHash = await hashPassword(password);
     await pool.query(
       `UPDATE users SET name = $1, username = $2, password = $3, is_active = $4, updated_at = NOW() WHERE id = $5 AND tenant_id = $6`,
-      [name, username, await hashPassword(password), is_active !== false, id, tenantId]
+      [name, username, newHash, is_active !== false, id, tenantId]
     );
+    // A senha faz parte da assinatura da sessão: trocar derruba as sessões abertas da conta.
+    // Quem trocou a PRÓPRIA senha recebe um cookie novo para continuar logado.
+    const me = c.get("currentUser") as UserInfo;
+    if (me.id === Number(id)) setCookie(c, SESSION_COOKIE, issueSession("user", me.id, newHash), sessionCookieOptions);
   } else {
     await pool.query(
       `UPDATE users SET name = $1, username = $2, is_active = $3, updated_at = NOW() WHERE id = $4 AND tenant_id = $5`,
@@ -767,32 +780,47 @@ app.delete("/api/employees/:id", authMiddleware, async (c) => {
 
 // ============ PIX KEYS ============
 
+// As chaves Pix não carregam tenant confiável (pix_keys.tenant_id ficou com o DEFAULT 1 nos
+// inserts antigos): o dono é sempre o do funcionário, então toda rota confere employees.tenant_id.
 app.get("/api/employees/:id/pix-keys", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
   const employeeId = c.req.param("id");
-  const { rows } = await pool.query("SELECT * FROM pix_keys WHERE employee_id = $1 ORDER BY is_primary DESC, id ASC", [employeeId]);
+  const { rows } = await pool.query(
+    `SELECT p.* FROM pix_keys p JOIN employees e ON e.id = p.employee_id
+     WHERE p.employee_id = $1 AND e.tenant_id = $2 ORDER BY p.is_primary DESC, p.id ASC`,
+    [employeeId, tenantId]
+  );
   return c.json(rows);
 });
 
 app.post("/api/employees/:id/pix-keys", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
   const employeeId = c.req.param("id");
   const { key_type, key_value, is_primary } = await c.req.json();
   if (!key_type || !key_value) return c.json({ error: "Tipo e valor da chave são obrigatórios" }, 400);
+
+  const { rows: emp } = await pool.query("SELECT id FROM employees WHERE id = $1 AND tenant_id = $2", [employeeId, tenantId]);
+  if (!emp[0]) return c.json({ error: "Funcionário não encontrado" }, 404);
 
   if (is_primary) {
     await pool.query("UPDATE pix_keys SET is_primary = false WHERE employee_id = $1", [employeeId]);
   }
   const { rows } = await pool.query(
-    `INSERT INTO pix_keys (employee_id, key_type, key_value, is_primary) VALUES ($1, $2, $3, $4) RETURNING id`,
-    [employeeId, key_type, key_value, is_primary ? true : false]
+    `INSERT INTO pix_keys (employee_id, key_type, key_value, is_primary, tenant_id) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [employeeId, key_type, key_value, is_primary ? true : false, tenantId]
   );
   return c.json({ id: rows[0].id, success: true }, 201);
 });
 
 app.put("/api/pix-keys/:id", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
   const id = c.req.param("id");
   const { key_type, key_value, is_primary } = await c.req.json();
 
-  const { rows: existing } = await pool.query("SELECT employee_id FROM pix_keys WHERE id = $1", [id]);
+  const { rows: existing } = await pool.query(
+    "SELECT p.employee_id FROM pix_keys p JOIN employees e ON e.id = p.employee_id WHERE p.id = $1 AND e.tenant_id = $2",
+    [id, tenantId]
+  );
   if (!existing[0]) return c.json({ error: "Chave PIX não encontrada" }, 404);
 
   if (is_primary) {
@@ -806,8 +834,12 @@ app.put("/api/pix-keys/:id", authMiddleware, async (c) => {
 });
 
 app.delete("/api/pix-keys/:id", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
   const id = c.req.param("id");
-  await pool.query("DELETE FROM pix_keys WHERE id = $1", [id]);
+  await pool.query(
+    "DELETE FROM pix_keys WHERE id = $1 AND employee_id IN (SELECT id FROM employees WHERE tenant_id = $2)",
+    [id, tenantId]
+  );
   return c.json({ success: true });
 });
 
@@ -880,6 +912,7 @@ app.post("/api/categories", authMiddleware, async (c) => {
   const { name, kind, notes, parent_id } = await c.req.json();
   if (!name || !kind) return c.json({ error: "Nome e tipo são obrigatórios" }, 400);
   if (kind !== "REVENUE" && kind !== "EXPENSE") return c.json({ error: "Tipo deve ser REVENUE ou EXPENSE" }, 400);
+  if (parent_id && (await checkTenantRefs(tenantId, { category_id: parent_id }))) return c.json({ error: "Categoria pai inválida" }, 400);
 
   const { rows } = await pool.query(
     `INSERT INTO categories (name, kind, notes, parent_id, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
@@ -894,6 +927,7 @@ app.put("/api/categories/:id", authMiddleware, async (c) => {
   const { name, kind, notes, parent_id } = await c.req.json();
   if (!name || !kind) return c.json({ error: "Nome e tipo são obrigatórios" }, 400);
   if (parent_id && Number(parent_id) === Number(id)) return c.json({ error: "Uma categoria não pode ser sua própria subcategoria" }, 400);
+  if (parent_id && (await checkTenantRefs(tenantId, { category_id: parent_id }))) return c.json({ error: "Categoria pai inválida" }, 400);
 
   await pool.query(
     `UPDATE categories SET name=$1, kind=$2, notes=$3, parent_id=$4, updated_at=NOW() WHERE id=$5 AND tenant_id=$6`,
@@ -1054,6 +1088,8 @@ app.post("/api/transactions", authMiddleware, async (c) => {
   if (!date || !type || !amount || !home_id || !category_id || !payment_method) {
     return c.json({ error: "Campos obrigatórios: data, tipo, valor, centro de custo, categoria e forma de pagamento" }, 400);
   }
+  const refsError = await checkTenantRefs(tenantId, { home_id, category_id, employee_id, company_id }, ["home_id", "category_id"]);
+  if (refsError) return c.json({ error: refsError }, 400);
 
   const id = await createTransaction(tenantId, { date, type, amount, home_id, category_id, employee_id, company_id, payment_method, status, description, notes, due_date, payment_date });
   return c.json({ id, success: true }, 201);
@@ -1080,6 +1116,8 @@ app.post("/api/transactions/batch", authMiddleware, async (c) => {
   if (!Number.isFinite(count) || count < 1 || count > max) {
     return c.json({ error: `count deve estar entre 1 e ${max}` }, 400);
   }
+  const refsError = await checkTenantRefs(tenantId, { home_id, category_id, employee_id, company_id }, ["home_id", "category_id"]);
+  if (refsError) return c.json({ error: refsError }, 400);
 
   const total = Number(amount);
   const records = mode === "installments" ? count : count + 1;
@@ -1148,6 +1186,9 @@ app.put("/api/transactions/:id", authMiddleware, async (c) => {
   const { date, type, amount, home_id, category_id, employee_id, company_id, payment_method, status, description, notes, due_date, payment_date } = body;
   const scope = body.scope === "following" || body.scope === "all" ? body.scope : "one";
   const changed: string[] = Array.isArray(body.changed) ? body.changed.filter((f: unknown) => (PROPAGATE_FIELDS as readonly string[]).includes(f as string)) : [];
+
+  const refsError = await checkTenantRefs(tenantId, { home_id, category_id, employee_id, company_id }, ["home_id", "category_id"]);
+  if (refsError) return c.json({ error: refsError }, 400);
 
   const client = await pool.connect();
   try {
@@ -1412,8 +1453,13 @@ app.post("/api/transactions/:id/attachments", authMiddleware, async (c) => {
 });
 
 app.get("/api/transactions/:id/attachments", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
   const transactionId = c.req.param("id");
-  const { rows } = await pool.query("SELECT * FROM attachments WHERE transaction_id = $1 ORDER BY created_at DESC", [transactionId]);
+  const { rows } = await pool.query(
+    `SELECT a.* FROM attachments a JOIN transactions t ON t.id = a.transaction_id
+     WHERE a.transaction_id = $1 AND t.tenant_id = $2 ORDER BY a.created_at DESC`,
+    [transactionId, tenantId]
+  );
   return c.json(rows);
 });
 
@@ -1504,6 +1550,8 @@ app.post("/api/timesheets", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
   const { employee_id, month, year } = await c.req.json();
   if (!employee_id || !month || !year) return c.json({ error: "Funcionário, mês e ano são obrigatórios" }, 400);
+  const refsError = await checkTenantRefs(tenantId, { employee_id }, ["employee_id"]);
+  if (refsError) return c.json({ error: refsError }, 400);
 
   const { rows: existing } = await pool.query(
     "SELECT id FROM timesheets WHERE employee_id = $1 AND month = $2 AND year = $3 AND tenant_id = $4",
@@ -1534,17 +1582,29 @@ app.put("/api/timesheets/:id", authMiddleware, async (c) => {
 app.delete("/api/timesheets/:id", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
   const id = c.req.param("id");
-  await pool.query("DELETE FROM timesheet_entries WHERE timesheet_id = $1", [id]);
-  await pool.query("DELETE FROM timesheets WHERE id = $1 AND tenant_id = $2", [id, tenantId]);
+  // Só mexe nas entradas se a folha for deste tenant (antes apagava as entradas de qualquer folha).
+  const { rows: owned } = await pool.query("SELECT id FROM timesheets WHERE id = $1 AND tenant_id = $2", [id, tenantId]);
+  if (owned[0]) {
+    await pool.query("DELETE FROM timesheet_entries WHERE timesheet_id = $1", [id]);
+    await pool.query("DELETE FROM timesheets WHERE id = $1 AND tenant_id = $2", [id, tenantId]);
+  }
   return c.json({ success: true });
 });
+
+// Folha de ponto do tenant ou null: as rotas de entradas só recebem o id da folha.
+const ownedTimesheet = async (tenantId: number, id: string): Promise<boolean> => {
+  const { rows } = await pool.query("SELECT id FROM timesheets WHERE id = $1 AND tenant_id = $2", [id, tenantId]);
+  return !!rows[0];
+};
 
 // ============ TIMESHEET ENTRIES ============
 
 app.post("/api/timesheets/:id/entries", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
   const timesheetId = c.req.param("id");
   const { day, entry1, exit1, entry2, exit2, hours_worked, hours_expected, overtime, observation } = await c.req.json();
   if (!day) return c.json({ error: "Dia é obrigatório" }, 400);
+  if (!(await ownedTimesheet(tenantId, timesheetId))) return c.json({ error: "Folha de ponto não encontrada" }, 404);
 
   const { rows: existing } = await pool.query(
     "SELECT id FROM timesheet_entries WHERE timesheet_id = $1 AND day = $2",
@@ -1567,9 +1627,11 @@ app.post("/api/timesheets/:id/entries", authMiddleware, async (c) => {
 });
 
 app.put("/api/timesheets/:id/entries", authMiddleware, async (c) => {
+  const tenantId = c.get("tenantId") as number;
   const timesheetId = c.req.param("id");
   const { entries } = await c.req.json();
   if (!Array.isArray(entries)) return c.json({ error: "Entries deve ser um array" }, 400);
+  if (!(await ownedTimesheet(tenantId, timesheetId))) return c.json({ error: "Folha de ponto não encontrada" }, 404);
 
   await pool.query("DELETE FROM timesheet_entries WHERE timesheet_id = $1", [timesheetId]);
 
