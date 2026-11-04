@@ -37,7 +37,13 @@ interface ReferenceState {
   load: (opts?: { force?: boolean }) => Promise<void>;
   refresh: () => Promise<void>;
   addCompany: (company: Company) => void;
+  /** Descarta tudo (troca de usuário/tenant): o próximo load() busca do zero. */
+  reset: () => void;
 }
+
+// Sobe a cada reset(). Um load() que ainda estava em andamento quando o usuário saiu
+// descarta a resposta em vez de gravar os cadastros do usuário anterior.
+let epoch = 0;
 
 const getJson = async <T,>(url: string): Promise<T[]> => {
   const res = await fetch(url, { credentials: "include" });
@@ -59,6 +65,7 @@ export const useReferenceData = create<ReferenceState>((set, get) => ({
   load: async ({ force = false } = {}) => {
     const { loaded, loading } = get();
     if (loading || (loaded && !force)) return;
+    const myEpoch = epoch;
     set({ loading: true });
     try {
       const [homes, categories, employees, companies] = await Promise.all([
@@ -67,6 +74,7 @@ export const useReferenceData = create<ReferenceState>((set, get) => ({
         getJson<Employee>("/app/api/employees"),
         getJson<Company>("/app/api/companies"),
       ]);
+      if (myEpoch !== epoch) return; // o usuário mudou no meio da busca
       set({
         homes,
         categories,
@@ -76,11 +84,16 @@ export const useReferenceData = create<ReferenceState>((set, get) => ({
         loading: false,
       });
     } catch {
-      set({ loading: false });
+      if (myEpoch === epoch) set({ loading: false });
     }
   },
 
   refresh: () => get().load({ force: true }),
+
+  reset: () => {
+    epoch++;
+    set({ homes: [], categories: [], employees: [], companies: [], loaded: false, loading: false });
+  },
 
   addCompany: (company) =>
     set((s) => ({ companies: [...s.companies, { ...company, is_active: !!company.is_active }] })),

@@ -5,6 +5,7 @@ import { Input } from "@/react-app/components/ui/input";
 import { Button } from "@/react-app/components/ui/button";
 import { Label } from "@/react-app/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
+import { useSession } from "@/react-app/hooks/use-session";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ export default function LoginPage() {
         credentials: "include",
       });
       if (response.ok) {
+        // Zera sessão e cadastros em memória: nunca herdar dados de quem usou esta aba antes.
+        useSession.getState().clear();
         navigate("/dashboard");
       }
     } catch {
@@ -47,6 +50,8 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
+        // Zera sessão e cadastros em memória: nunca herdar dados de quem usou esta aba antes.
+        useSession.getState().clear();
         navigate("/dashboard");
       } else {
         const data = await response.json();

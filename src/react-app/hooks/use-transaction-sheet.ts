@@ -52,6 +52,8 @@ interface TransactionSheetState {
   openDuplicate: (transaction: TransactionRecord) => void;
   close: () => void;
   notifySaved: () => void;
+  /** Fecha o painel e descarta o lançamento em edição (troca de usuário). */
+  reset: () => void;
 }
 
 export const useTransactionSheet = create<TransactionSheetState>((set) => ({
@@ -74,4 +76,6 @@ export const useTransactionSheet = create<TransactionSheetState>((set) => ({
   close: () => set({ open: false }),
 
   notifySaved: () => set((s) => ({ version: s.version + 1 })),
+
+  reset: () => set({ open: false, mode: "create", transaction: null, defaults: null, expandDetails: false }),
 }));

@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/react-app/components/ui/badge";
 import { Switch } from "@/react-app/components/ui/switch";
 import { useAlert } from "@/react-app/hooks/use-alert";
+import { useSession } from "@/react-app/hooks/use-session";
 import AiWhatsappCard from "@/react-app/components/settings/AiWhatsappCard";
 
 interface AppUser {
@@ -107,7 +108,8 @@ export default function ConfiguracoesPage() {
   };
 
   const handleLogout = async () => {
-    await fetch("/app/api/auth/logout", { method: "POST", credentials: "include" });
+    // Pelo store: além de encerrar a sessão, zera os cadastros em memória do usuário que saiu.
+    await useSession.getState().logout();
     navigate("/");
   };
 

@@ -1,7 +1,19 @@
 import { create } from "zustand";
+import { useReferenceData } from "./use-reference-data";
+import { useTransactionSheet } from "./use-transaction-sheet";
 
 // Sessão carregada UMA vez por visita (antes: /auth/me + /tenant/subscription a cada rota,
 // e de novo no TopNav). Páginas leem daqui; AppShell chama load() na montagem.
+
+/**
+ * Zera tudo que pertence a um usuário/tenant e vive em memória (categorias, centros de custo,
+ * painel de lançamento…). A navegação do app é SPA: sem isso, quem entra depois na mesma aba
+ * enxerga os cadastros de quem saiu. Todo novo store por usuário deve ser zerado aqui.
+ */
+export function resetUserScopedState(): void {
+  useReferenceData.getState().reset();
+  useTransactionSheet.getState().reset();
+}
 
 export interface SessionUser {
   id: number;
@@ -58,7 +70,10 @@ export const useSession = create<SessionState>((set, get) => ({
     if (get().status === "loading") return;
     set({ status: "loading" });
     try {
+      const prevId = get().user?.id;
       const { user, subscription, authenticated } = await fetchSession();
+      // Outro usuário na mesma aba (login em outra aba, sessão trocada): descarta o que era do anterior.
+      if (user && prevId != null && prevId !== user.id) resetUserScopedState();
       set({
         user,
         subscription,
@@ -75,11 +90,14 @@ export const useSession = create<SessionState>((set, get) => ({
     if (status !== "ready") return;
     if (!force && Date.now() - lastLoadedAt < REFRESH_THROTTLE_MS) return;
     try {
+      const prevId = get().user?.id;
       const { user, subscription, authenticated } = await fetchSession();
       if (!authenticated) {
         set({ user: null, subscription: null, status: "unauthenticated" });
+        resetUserScopedState();
         return;
       }
+      if (user && prevId != null && prevId !== user.id) resetUserScopedState();
       set({ user, subscription, lastLoadedAt: Date.now() });
     } catch {
       // mantém o estado anterior; a próxima navegação tenta de novo
@@ -91,10 +109,14 @@ export const useSession = create<SessionState>((set, get) => ({
       await fetch("/app/api/auth/logout", { method: "POST", credentials: "include" });
     } finally {
       set({ user: null, subscription: null, status: "unauthenticated", lastLoadedAt: 0 });
+      resetUserScopedState();
     }
   },
 
-  clear: () => set({ user: null, subscription: null, status: "idle", lastLoadedAt: 0 }),
+  clear: () => {
+    set({ user: null, subscription: null, status: "idle", lastLoadedAt: 0 });
+    resetUserScopedState();
+  },
 }));
 
 /** Mesma regra do DashboardLayout antigo (bloqueio de navegação). */
