@@ -43,12 +43,12 @@ export const setTransactionStatus = async (tenantId: number, id: number, status:
 };
 
 /** Remove o lançamento e seus anexos (linhas e arquivos); `attachments` não tem chave estrangeira. */
-export const deleteTransaction = async (tenantId: number, id: number): Promise<{ type: string; amount: number; description: string | null } | null> => {
+export const deleteTransaction = async (tenantId: number, id: number): Promise<{ type: string; amount: number; description: string | null; category_id: number | null } | null> => {
   const { rows: files } = await pool.query(
     "SELECT a.filename FROM attachments a JOIN transactions t ON t.id = a.transaction_id WHERE a.transaction_id = $1 AND t.tenant_id = $2",
     [id, tenantId]
   );
-  const { rows } = await pool.query("DELETE FROM transactions WHERE id = $1 AND tenant_id = $2 RETURNING type, amount::float AS amount, description", [id, tenantId]);
+  const { rows } = await pool.query("DELETE FROM transactions WHERE id = $1 AND tenant_id = $2 RETURNING type, amount::float AS amount, description, category_id", [id, tenantId]);
   if (!rows[0]) return null;
   await pool.query("DELETE FROM attachments WHERE transaction_id = $1", [id]);
   for (const f of files) {

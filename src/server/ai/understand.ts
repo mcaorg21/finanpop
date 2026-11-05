@@ -5,8 +5,8 @@ import pool from "../db.js";
 import { addDays, PERIOD_PRESETS, resolvePeriod, todaySP, type PeriodPreset } from "../lib/periods.js";
 import { categoryScope, type GroupBy } from "../lib/reports.js";
 import type { ChartKind, Query } from "../whatsapp/assistant.js";
-import { chatJson, type TenantAI } from "./openai.js";
-import { PAYMENT_METHOD_VALUES } from "./parse-expense.js";
+import { chatJson, type ChatMessage, type TenantAI } from "./openai.js";
+import { PAYMENT_METHOD_VALUES, type HistoryMessage } from "./parse-expense.js";
 
 const GROUPS: GroupBy[] = ["category", "parent_category", "home", "payment_method", "description", "day", "month"];
 const CHARTS: ChartKind[] = ["EVOLUTION", "CATEGORY", "DAILY", "RANKING"];
@@ -125,6 +125,8 @@ INTENÇÕES (intent):
 
 Lançamento aguardando confirmação: ${pending}` : ""}
 
+HISTÓRICO: as mensagens anteriores da conversa vêm antes da última. Classifique SOMENTE a última mensagem, usando o histórico para entender continuações ("e ontem?", "e no cartão?", "e do mês passado?", "mostra em gráfico"): herde a intenção e os filtros da pergunta anterior e mude só o que a nova mensagem muda. Um gasto que já aparece como lançado no histórico não é um LAUNCH novo.
+
 CAMPOS:
 - period.preset: today, yesterday, tomorrow, next_7_days, next_30_days (para vencimentos futuros), this_week (segunda a domingo), last_week, last_7_days, last_30_days, this_month, last_month, this_year, last_year, all_time ("até hoje", "desde o começo", "total"), month (mês citado; preencha period.month YYYY-MM; sem ano, use o mais recente que já começou), custom (intervalo; preencha start e end YYYY-MM-DD). Sem período citado: this_month. Campos não usados do period ficam null.
 - type: EXPENSE para gastos/despesas/contas a pagar; REVENUE para receitas/entradas/recebimentos/a receber; ALL quando envolve os dois ou não se aplica.
@@ -208,6 +210,8 @@ const interpret = async (tenantId: number, raw: Raw, ctx: Ctx, today: string): P
 export interface UnderstandOptions {
   /** JSON curto do rascunho aguardando confirmação (habilita a intenção CORRECTION). */
   pendingDraft?: string | null;
+  /** Últimas mensagens da conversa, da mais antiga para a mais nova (sem a atual): dá contexto a perguntas de continuação. */
+  history?: HistoryMessage[];
 }
 
 export const understandMessage = async (tenantId: number, ai: TenantAI, text: string, opts: UnderstandOptions = {}): Promise<Understood> => {
@@ -218,6 +222,7 @@ export const understandMessage = async (tenantId: number, ai: TenantAI, text: st
     ai,
     [
       { role: "system", content: buildPrompt(ctx, today, pending) },
+      ...(opts.history ?? []).map((h): ChatMessage => ({ role: h.role, content: h.content })),
       { role: "user", content: text },
     ],
     "assistant_intent",

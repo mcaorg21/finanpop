@@ -170,7 +170,9 @@ export default function AjudaPage() {
             </ol>
             <ul className="list-disc space-y-1 pl-5">
               <li>O FinanPOP responde com um resumo e os botões <strong>Confirmar</strong> e <strong>Cancelar</strong>; nada é lançado antes da sua confirmação.</li>
-              <li>Faltou categoria ou centro de custo? Ele pergunta e você responde com o número da opção.</li>
+              <li>Tem mais de uma conta? Envie uma foto por nota (ou várias notas na mesma foto, ou vários gastos no mesmo texto): cada uma vira um lançamento separado para você confirmar. Para resolver todos de uma vez, responda <strong>confirmar todos</strong> ou <strong>cancelar todos</strong>.</li>
+              <li>Não tem certeza de qual categoria usar? Em vez de escolher uma errada, ele sugere uma <strong>rubrica nova</strong> dentro de uma categoria que você já tem (por exemplo, “Pet shop” em Despesas Pessoais). Ela só é criada quando você aperta <strong>Confirmar</strong>; para usar outra, responda “categoria Mercado”, e se cancelar nada é criado. Ao <strong>desfazer</strong> o lançamento, a rubrica criada junto também some se ficou vazia.</li>
+              <li>Faltou o centro de custo (ou não há categoria que sirva)? Ele pergunta e você responde com o número da opção (ou com palavras, como “no mercado”).</li>
               <li>Para corrigir, basta responder (“foi no cartão”, “é 52,90”). Se a mensagem trouxe uma foto, ela fica anexada ao lançamento.</li>
               <li>Lançou errado? Envie <strong>desfazer</strong> em até 24 horas e o último lançamento feito pelo WhatsApp é removido.</li>
             </ul>
@@ -186,7 +188,7 @@ export default function AjudaPage() {
             </ul>
             <p className="border-l-2 border-border pl-3 text-muted-foreground">
               <strong className="text-foreground">Privacidade:</strong> o texto, o áudio e a imagem enviados são processados pela OpenAI com a chave da sua conta,
-              e o custo é cobrado por ela. A chave fica guardada criptografada e nunca volta a ser exibida. O áudio é descartado após a transcrição.
+              e o custo é cobrado por ela. A chave fica guardada criptografada e nunca volta a ser exibida. O áudio é descartado após a transcrição. As últimas mensagens da conversa ficam guardadas por até 24 horas para dar contexto à IA (“o mesmo”, “e ontem?”, “no cartão”) e depois são apagadas.
             </p>
           </AccordionContent>
         </AccordionItem>
