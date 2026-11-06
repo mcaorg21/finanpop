@@ -557,7 +557,7 @@ const processMessage = async (msg: WaMessage) => {
   const tenantId = link.tenant_id as number;
 
   if (!(await hasEnterprise(tenantId))) {
-    await sendText(to, "O assistente do FinanPOP no WhatsApp (lançar, consultar, gráficos) é um recurso exclusivo do plano Enterprise.");
+    await sendText(to, "O assistente do FinanPOP no WhatsApp (lançar, consultar, gráficos) é exclusivo do plano Enterprise (R$ 39,90/mês). Para contratar, abra o app em Configurações → IA e WhatsApp.");
     return;
   }
   const c: Ctx = { to, key, userId: link.user_id, tenantId, env: { tenantId, today: todaySP() }, newSession: touchSession(key), menuShown: false };

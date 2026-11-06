@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Loader2, Lock, MessageCircle } from "lucide-react";
+import { Bot, Check, Loader2, Lock, MessageCircle } from "lucide-react";
 
 import { Badge } from "@/react-app/components/ui/badge";
 import { Button } from "@/react-app/components/ui/button";
@@ -30,6 +30,7 @@ export default function AiWhatsappCard() {
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [linking, setLinking] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -83,6 +84,16 @@ export default function AiWhatsappCard() {
     if (await call("/app/api/integrations/whatsapp/link", { method: "DELETE" }, "WhatsApp desvinculado")) await load();
   };
 
+  const subscribe = async () => {
+    setSubscribing(true);
+    try {
+      const data = await call("/app/api/tenant/create-payment-link", { ...json, method: "POST", body: JSON.stringify({ plan: "ENTERPRISE" }) });
+      if (data?.url) window.open(data.url, "_blank");
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   const header = (
     <CardHeader>
       <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -101,13 +112,38 @@ export default function AiWhatsappCard() {
     return (
       <Card>
         {header}
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-start gap-3 rounded-lg border border-dashed bg-muted/40 p-4 text-sm text-muted-foreground">
             <Lock className="mt-0.5 size-4 shrink-0" />
             <p>
-              Este recurso é exclusivo do <strong className="text-foreground">plano Enterprise</strong>. Envie uma mensagem como
-              &ldquo;gastei 45,90 no mercado no pix&rdquo;, um áudio ou a foto de uma nota fiscal e a IA registra o lançamento para você
-              confirmar. Fale com a gente para contratar.
+              Este recurso é exclusivo do <strong className="text-foreground">plano Enterprise</strong>. Atualize o seu plano para
+              lançar despesas, consultar gastos e ver gráficos direto pelo WhatsApp.
+            </p>
+          </div>
+          <ul className="space-y-1.5 text-sm">
+            {[
+              "Lance por texto, áudio ou foto da nota fiscal: a IA preenche e você só confirma",
+              "Pergunte quanto gastou, o saldo e as contas a vencer",
+              "Receba gráficos e resumos dos seus gastos em imagem",
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="space-y-3 rounded-lg border p-4">
+            <p>
+              <span className="text-2xl font-semibold">R$ 39,90</span>
+              <span className="text-sm text-muted-foreground">/mês</span>
+            </p>
+            <Button className="w-full gap-2" onClick={subscribe} disabled={subscribing}>
+              {subscribing && <Loader2 className="animate-spin" />}
+              {subscribing ? "Gerando link..." : "Atualizar para o plano Enterprise"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Você usa a sua própria chave da OpenAI, e o custo da IA é cobrado por ela. Depois da confirmação do pagamento, o plano
+              Enterprise é liberado na sua conta.
             </p>
           </div>
         </CardContent>

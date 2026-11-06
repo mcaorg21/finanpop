@@ -162,6 +162,10 @@ export default function AjudaPage() {
             <span className="font-semibold">Assistente no WhatsApp: lançar, consultar e ver gráficos (plano Enterprise)</span>
           </AccordionTrigger>
           <AccordionContent className="space-y-3 pt-4 text-sm">
+            <p>
+              Este recurso é exclusivo do <strong>plano Enterprise (R$ 39,90/mês)</strong>. Para contratar, abra <strong>Configurações → IA e
+              WhatsApp</strong> e clique em <strong>Atualizar para o plano Enterprise</strong>.
+            </p>
             <ol className="list-decimal space-y-1 pl-5">
               <li>Em <strong>Configurações → IA e WhatsApp</strong>, cadastre a sua chave da OpenAI e escolha o modelo.</li>
               <li>Informe seu telefone com DDD e clique em <strong>Gerar código</strong>.</li>

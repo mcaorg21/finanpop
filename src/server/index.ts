@@ -538,6 +538,8 @@ app.get("/api/tenant/subscription", authMiddleware, async (c) => {
 
 app.post("/api/tenant/create-payment-link", authMiddleware, async (c) => {
   const tenantId = c.get("tenantId") as number;
+  const body = (await c.req.json().catch(() => ({}))) as { plan?: string };
+  const enterprise = body?.plan === "ENTERPRISE";
   try {
     const response = await fetch("https://api.asaas.com/v3/paymentLinks", {
       method: "POST",
@@ -552,11 +554,13 @@ app.post("/api/tenant/create-payment-link", authMiddleware, async (c) => {
         chargeType: "RECURRENT",
         subscriptionCycle: "MONTHLY",
         maxInstallmentCount: 12,
-        externalReference: tenantId.toString(),
+        // O Enterprise leva o prefixo "ENT-" de propósito: /api/payment/callback só entende o id numérico (plano
+        // básico) e não pode rebaixar quem pagou o Enterprise. A liberação do Enterprise é feita no painel Admin.
+        externalReference: enterprise ? `ENT-${tenantId}` : tenantId.toString(),
         isAddressRequired: false,
         notificationEnabled: true,
-        name: "Assinatura FinanPOP - Hub Controle Financeiro",
-        value: 7.9,
+        name: enterprise ? "Assinatura FinanPOP Enterprise - Hub Controle Financeiro" : "Assinatura FinanPOP - Hub Controle Financeiro",
+        value: enterprise ? 39.9 : 7.9,
       }),
     });
     if (!response.ok) {

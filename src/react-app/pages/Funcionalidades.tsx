@@ -52,7 +52,7 @@ export default function Funcionalidades() {
     },
     {
       title: "Assistente financeiro no WhatsApp com IA (Enterprise)",
-      description: "Lance por texto, áudio ou foto de nota, consulte gastos e saldo, veja contas a vencer, receba gráficos em imagem e insights sobre seus gastos, tudo pelo WhatsApp. Exclusivo do plano Enterprise."
+      description: "Lance por texto, áudio ou foto de nota, consulte gastos e saldo, veja contas a vencer, receba gráficos em imagem e insights sobre seus gastos, tudo pelo WhatsApp. Exclusivo do plano Enterprise (R$ 39,90/mês)."
     }
   ];
 
