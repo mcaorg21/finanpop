@@ -6,6 +6,7 @@ import { hasEnterprise, requireEnterprise } from "./lib/plan.js";
 import { phoneKey } from "./lib/phone.js";
 import { DEFAULT_MODEL, OpenAIError, getTenantAI, validateOpenAIKey } from "./ai/openai.js";
 import { parseExpense } from "./ai/parse-expense.js";
+import { NOTICE_DEFAULT_HOUR, NOTICE_MAX_HOUR, NOTICE_MIN_HOUR } from "./whatsapp/daily-notice.js";
 
 type Env = { Variables: { currentUser: { id: number; name: string; username: string; tenant_id: number }; tenantId: number } };
 
@@ -21,7 +22,7 @@ export function registerIntegrationRoutes(app: Hono<Env>, authMiddleware: any) {
 
     const [integ, link] = await Promise.all([
       pool.query("SELECT openai_key_last4, openai_model FROM integrations WHERE tenant_id = $1 AND openai_key_enc IS NOT NULL", [tenantId]),
-      pool.query("SELECT phone, verified_at, link_code, link_code_expires FROM whatsapp_links WHERE user_id = $1", [user.id]),
+      pool.query("SELECT phone, verified_at, link_code, link_code_expires, daily_notice, notice_hour FROM whatsapp_links WHERE user_id = $1", [user.id]),
     ]);
     const l = link.rows[0];
     const pendingCode = l && !l.verified_at && l.link_code && new Date(l.link_code_expires) > new Date();
@@ -37,6 +38,7 @@ export function registerIntegrationRoutes(app: Hono<Env>, authMiddleware: any) {
         phone: l?.phone ?? null,
         pending_code: pendingCode ? l.link_code : null,
         pending_expires: pendingCode ? l.link_code_expires : null,
+        notice: { enabled: !!l?.daily_notice, hour: l?.notice_hour ?? NOTICE_DEFAULT_HOUR },
       },
     });
   });
@@ -96,10 +98,28 @@ export function registerIntegrationRoutes(app: Hono<Env>, authMiddleware: any) {
     await pool.query(
       `INSERT INTO whatsapp_links (tenant_id, user_id, phone, link_code, link_code_expires, verified_at)
        VALUES ($1,$2,$3,$4, NOW() + INTERVAL '15 minutes', NULL)
-       ON CONFLICT (user_id) DO UPDATE SET tenant_id = $1, phone = $3, link_code = $4, link_code_expires = NOW() + INTERVAL '15 minutes', verified_at = NULL`,
+       ON CONFLICT (user_id) DO UPDATE SET tenant_id = $1, phone = $3, link_code = $4, link_code_expires = NOW() + INTERVAL '15 minutes', verified_at = NULL,
+         last_inbound_at = NULL, wa_from = NULL`,
       [tenantId, user.id, key, code]
     );
     return c.json({ success: true, code, number: process.env.WHATSAPP_DISPLAY_NUMBER || null, message: `VINCULAR ${code}` });
+  });
+
+  /** Liga/desliga o aviso diário das contas do dia e escolhe o horário (só com o WhatsApp já vinculado). */
+  app.put("/api/integrations/whatsapp/notice", authMiddleware, requireEnterprise, async (c) => {
+    const user = c.get("currentUser") as { id: number };
+    const body = (await c.req.json().catch(() => ({}))) as { enabled?: unknown; hour?: unknown };
+    const hour = body.hour === undefined ? null : Number(body.hour);
+    if (hour !== null && (!Number.isInteger(hour) || hour < NOTICE_MIN_HOUR || hour > NOTICE_MAX_HOUR)) {
+      return c.json({ error: `Escolha um horário entre ${NOTICE_MIN_HOUR}h e ${NOTICE_MAX_HOUR}h` }, 400);
+    }
+    const enabled = typeof body.enabled === "boolean" ? body.enabled : null;
+    const { rowCount } = await pool.query(
+      "UPDATE whatsapp_links SET daily_notice = COALESCE($2::boolean, daily_notice), notice_hour = COALESCE($3::int, notice_hour) WHERE user_id = $1 AND verified_at IS NOT NULL",
+      [user.id, enabled, hour]
+    );
+    if (!rowCount) return c.json({ error: "Vincule o seu WhatsApp antes de ativar o aviso diário" }, 400);
+    return c.json({ success: true });
   });
 
   app.delete("/api/integrations/whatsapp/link", authMiddleware, requireEnterprise, async (c) => {

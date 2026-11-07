@@ -16,6 +16,7 @@ import { issueSession, peekSessionId, verifySession, SESSION_TTL_SECONDS } from 
 import { checkTenantRefs } from "./lib/tenant-refs.js";
 import { registerIntegrationRoutes } from "./integrations.js";
 import { registerWhatsAppRoutes } from "./whatsapp/routes.js";
+import { startDailyNotices } from "./whatsapp/daily-notice.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1669,3 +1670,4 @@ if (fs.existsSync(publicDir)) {
 const port = parseInt(process.env.PORT || "3000");
 console.log(`Server running on port ${port}`);
 serve({ fetch: app.fetch, port, hostname: "0.0.0.0" });
+startDailyNotices();

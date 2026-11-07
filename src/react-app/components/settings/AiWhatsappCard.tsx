@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/rea
 import { Input } from "@/react-app/components/ui/input";
 import { Label } from "@/react-app/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/react-app/components/ui/select";
+import { Switch } from "@/react-app/components/ui/switch";
 import { useAlert } from "@/react-app/hooks/use-alert";
 import { useToast } from "@/react-app/hooks/use-toast";
 
@@ -14,8 +15,18 @@ interface Status {
   enterprise: boolean;
   models?: string[];
   openai?: { configured: boolean; last4: string | null; model: string };
-  whatsapp?: { number: string | null; linked: boolean; phone: string | null; pending_code: string | null; pending_expires: string | null };
+  whatsapp?: {
+    number: string | null;
+    linked: boolean;
+    phone: string | null;
+    pending_code: string | null;
+    pending_expires: string | null;
+    notice?: { enabled: boolean; hour: number };
+  };
 }
+
+/** Mesmo intervalo aceito pelo servidor (NOTICE_MIN_HOUR..NOTICE_MAX_HOUR em whatsapp/daily-notice.ts). */
+const NOTICE_HOURS = Array.from({ length: 18 }, (_, i) => i + 5);
 
 const json = { headers: { "Content-Type": "application/json" }, credentials: "include" as const };
 
@@ -31,6 +42,7 @@ export default function AiWhatsappCard() {
   const [saving, setSaving] = useState(false);
   const [linking, setLinking] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [savingNotice, setSavingNotice] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +88,15 @@ export default function AiWhatsappCard() {
       if (await call("/app/api/integrations/whatsapp/link", { ...json, method: "POST", body: JSON.stringify({ phone }) })) await load();
     } finally {
       setLinking(false);
+    }
+  };
+
+  const saveNotice = async (change: { enabled?: boolean; hour?: number }) => {
+    setSavingNotice(true);
+    try {
+      if (await call("/app/api/integrations/whatsapp/notice", { ...json, method: "PUT", body: JSON.stringify(change) }, change.enabled === undefined ? "Horário atualizado" : change.enabled ? "Aviso diário ativado" : "Aviso diário desativado")) await load();
+    } finally {
+      setSavingNotice(false);
     }
   };
 
@@ -201,6 +222,34 @@ export default function AiWhatsappCard() {
                 Envie despesas para {whatsapp.number ? <strong className="text-foreground">{whatsapp.number}</strong> : "o número do FinanPOP"}.
                 Você sempre confirma antes de lançar.
               </p>
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="daily-notice" className="text-sm font-medium">Aviso diário das contas do dia</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Todo dia o FinanPOP manda no WhatsApp as contas que vencem e as atrasadas, e não envia nada nos dias sem conta.
+                      Pela regra do WhatsApp, só chega se você tiver enviado alguma mensagem para ele nas últimas 24 horas.
+                    </p>
+                  </div>
+                  <Switch
+                    id="daily-notice"
+                    checked={!!whatsapp.notice?.enabled}
+                    disabled={savingNotice}
+                    onCheckedChange={(enabled) => saveNotice({ enabled })}
+                  />
+                </div>
+                {whatsapp.notice?.enabled && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>A partir das</span>
+                    <Select value={String(whatsapp.notice.hour)} onValueChange={(h) => saveNotice({ hour: Number(h) })} disabled={savingNotice}>
+                      <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {NOTICE_HOURS.map((h) => <SelectItem key={h} value={String(h)}>{h}h</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
               <Button size="sm" variant="outline" onClick={unlink}>Desvincular</Button>
             </>
           ) : (

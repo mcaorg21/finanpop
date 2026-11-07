@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import pool from "../db.js";
 import { hasEnterprise } from "../lib/plan.js";
+import { noticeCommand } from "./daily-notice.js";
 import { phoneKey } from "../lib/phone.js";
 import { todaySP } from "../lib/periods.js";
 import { getTransaction, listTransactions } from "../lib/reports.js";
@@ -555,6 +556,10 @@ const processMessage = async (msg: WaMessage) => {
     return;
   }
   const tenantId = link.tenant_id as number;
+  // Abre a janela de 24 h da Meta: o aviso diário só sai para quem escreveu recentemente (e usa este "from" exato).
+  await pool
+    .query("UPDATE whatsapp_links SET last_inbound_at = NOW(), wa_from = $2 WHERE user_id = $1", [link.user_id, to])
+    .catch((e) => console.error("last_inbound_at:", e));
 
   if (!(await hasEnterprise(tenantId))) {
     await sendText(to, "O assistente do FinanPOP no WhatsApp (lançar, consultar, gráficos) é exclusivo do plano Enterprise (R$ 39,90/mês). Para contratar, abra o app em Configurações → IA e WhatsApp.");
@@ -590,6 +595,14 @@ const processMessage = async (msg: WaMessage) => {
     sendText(to, `Você tem ${waiting.length} lançamentos aguardando. Use os botões de cada um, ou responda "confirmar todos" ou "cancelar todos".`);
 
   if (text && isGreeting(text)) return sendMenu(c);
+
+  if (text) {
+    const reply = await noticeCommand(link.user_id, text);
+    if (reply) {
+      await sendText(to, reply);
+      return;
+    }
+  }
 
   if (text && isUndo(text)) {
     // com rascunho aberto, "desfazer" equivale a cancelar; senão apaga o último lançamento
